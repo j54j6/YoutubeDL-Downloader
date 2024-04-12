@@ -21,3 +21,12 @@ Supported values:
     Database Configuration:
         If you want to create a table inside the main database you can utilize the "db" key. If defined the program will create a table with the given columns and if you want also default rows. 
         For reference please check the project.json file as a reference :)
+
+
+# TODO
+- implementing db functions
+- implementing user interface/cli
+- implementing downloader
+- implementing scheme reader
+- creating requirements.txt
+- complete ReadME

@@ -33,5 +33,6 @@ def main():
         logger.error("Error while loading config! - Check log...")
         exit()
     
+    #Check for database
     
 

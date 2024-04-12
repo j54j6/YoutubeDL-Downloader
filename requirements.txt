@@ -1,0 +1,5 @@
+bs4==0.0.1
+prettytable==0.7.2
+requests==2.22.0
+youtube-dl==2021.12.17
+lxml==4.6.3
