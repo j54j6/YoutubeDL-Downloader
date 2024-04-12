@@ -1,3 +1,6 @@
+# Show some love <3
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/j54j6)
+
 # YoutubeDL-Dowloader
  This little program is supposed to help you to make a private copy of videos from sites supporting youtube-dl. Currently many sites like youtube, NYT, CNBC but also adult sites like Pornhub 91porn and much more support youtube-dl. Feel Free to use it but be aware about legal discussions - This Repo is jsut a project to show that this is in general working.^^
  I am not responsible for any damages or anything else. You use this program on your OWN RISK
