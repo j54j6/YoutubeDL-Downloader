@@ -1,0 +1,17 @@
+{
+    "schema_name": "items",
+    "db": {
+        "table_needed": true,
+        "table_name": "items",
+        "columns": {
+            "id": ["integer PRIMARY KEY"],
+            "scheme": ["text"],
+            "file_name": ["text"],
+            "file_path": ["text"],
+            "file_hash": ["text"],
+            "created": ["DATETIME DEFAULT CURRENT_TIMESTAMP"],
+            "locked": ["bool"],
+            "data": ["text"]
+        }
+    }
+}

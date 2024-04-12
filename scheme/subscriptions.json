@@ -1,0 +1,17 @@
+{
+    "schema_name": "subscriptions",
+    "db": {
+        "table_needed": true,
+        "table_name": "subscriptions",
+        "columns": {
+            "id": ["integer PRIMARY KEY"],
+            "scheme": ["text"],
+            "subscription_name": ["text"],
+            "subscription_path": ["text"],
+            "subscriptions_last_checked": ["DATETIME DEFAULT CURRENT_TIMESTAMP"],
+            "subscriptions_last_created": ["DATETIME DEFAULT CURRENT_TIMESTAMP"],
+            "subscription_has_new_data": ["bool"],
+            "subscription_data": ["text"]
+        }
+    }
+}

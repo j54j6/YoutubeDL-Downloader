@@ -1,0 +1,16 @@
+{
+    "schema_name": "project",
+    "db": {
+        "table_needed": true,
+        "table_name": "config",
+        "columns": {
+            "id": ["integer PRIMARY KEY"],
+            "option": ["text"],
+            "value": ["text"],
+            "datecreated": ["DATETIME DEFAULT CURRENT_TIMESTAMP"]
+        },
+        "rows": [
+            {"option": "location", "value": "./"}
+        ]
+    }
+}
