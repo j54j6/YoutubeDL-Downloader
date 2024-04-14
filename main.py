@@ -18,7 +18,8 @@
 
 
 # Own Modules
-from project_functions import check_dependencies, check_db 
+from project_functions import check_dependencies
+from database_manager import engine, db_init, check_db, check_table_exist
 from config_handler import config, check_for_config
 # Python Modules
 import logging
@@ -36,6 +37,18 @@ def main():
         logger.error("Error while loading config! - Check log...")
         exit()
     
-    #Check for database
+    #Check for database and init
+    database_check_successful = check_db()
 
+    if not database_check_successful:
+        logging.error("Error while initializing DB! - Please check log...")
+        exit()
+    
+    #Check database content
+    #Check if needed tables existing ("config", "items", "subscriptions")
 
+    if not check_table_exist("config"):
+        #Create config table from scheme
+    
+    if not check_table_exist("items"):
+        

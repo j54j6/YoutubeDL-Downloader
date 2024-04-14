@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 # init configParser
 config:ConfigParser = ConfigParser()
+loaded:bool = False
 
 #default config_name
 default_config_name:str = "config.ini"
@@ -26,15 +27,22 @@ default_config_name:str = "config.ini"
 def create_default_config(path):
     #Add Default configuration for values needed for the whole project
     config.add_section('main')
-    config.set('main', 'db_name', 'database.db')
-    config.set('main', 'db_path', './')
+
+    config.add_section('db')
+    config.set('db', 'db_driver', 'sqlite')
+    config.set('db', 'db_path', './')
+    config.set('db', 'db_name', 'database.db')
+    config.set('db', 'db_host', 'localhost')
+    config.set('db', 'db_user', 'username')
+    config.set('db', 'db_pass', 'password')
+
 
     try:
         with open(path, 'w') as f:
             config.write(f)
         return True
     except Exception as e:
-        logger.error("Error while creating default config! - Error: %s", e)
+        logger.error(f"Error while creating default config! - Error: {e}")
         return False
     
 
@@ -52,7 +60,7 @@ def check_for_config(path=False):
                 logger.error("The given file %s does not end with \".ini\". Only INI Files are supported")
                 exit()
         except Exception as e:
-            logger.error("Error while converting given configuration path to Path Object. Error: %s", e)
+            logger.error(f"Error while converting given configuration path to Path Object. Error: {e}")
             exit()
         
     logger.info("Check for config file. Provided path: %s", path)
