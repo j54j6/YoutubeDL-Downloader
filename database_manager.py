@@ -9,6 +9,7 @@
 import logging
 import logging
 import os
+import json
 from sqlalchemy import create_engine, Column, Integer, String, Engine, MetaData
 
 
@@ -72,3 +73,21 @@ def check_table_exist(table_name:str):
             return False
     except Exception as e:
         logging.error(f"Error while checking for table! - Error{e}")
+
+#This function can create a table bases on a defined JSON scheme
+def create_table(name:str, scheme:json):
+    #Check if the table already exist. If so - SKIP
+    if check_table_exist(name):
+        logger.warning(f"Table {name} already exist! - SKIP")
+        return True
+
+    logger.info(f"Create table {name}")
+    #Check if the scheme parameter is valid JSON
+    try:
+        data = json.loads(scheme)
+    except Exception as e:
+        logging.error(f"Error while reading JSON Scheme! - Error: {e}")
+        return False
+    
+    for column_name in scheme:
+        

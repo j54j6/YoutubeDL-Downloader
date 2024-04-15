@@ -47,10 +47,14 @@ def main():
     #Check database content
     #Check if needed tables existing ("config", "items", "subscriptions")
 
+    logger.info("Check if all tables exist..")
     if not check_table_exist("config"):
         #Create config table from scheme
-    
+        logger.info("Config table does not exist - Create Table...")
+        
     if not check_table_exist("items"):
         #Create items table from scheme
 
-    if not check_table_exist("subscr")
+    if not check_table_exist("subscriptions"):
+        #Create subscriptions table
+
