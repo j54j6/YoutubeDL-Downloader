@@ -51,4 +51,6 @@ def main():
         #Create config table from scheme
     
     if not check_table_exist("items"):
-        
+        #Create items table from scheme
+
+    if not check_table_exist("subscr")
