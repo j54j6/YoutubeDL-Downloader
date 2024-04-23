@@ -24,7 +24,7 @@ default_config_name:str = "config.ini"
 
 
 
-def create_default_config(path):
+def create_default_config(path=Path.joinpath(pathlib.Path(__file__).parent.resolve(), "config.ini")):
     #Add Default configuration for values needed for the whole project
     config.add_section('main')
 

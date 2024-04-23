@@ -10,8 +10,7 @@ import logging
 import logging
 import os
 import json
-from sqlalchemy import create_engine, Column, Integer, String, Engine, MetaData
-
+from sqlalchemy import create_engine, Column, Integer, String, Engine, MetaData, StaticPool, text
 
 
 #own Modules
@@ -19,14 +18,16 @@ from config_handler import config, check_for_config, loaded
 
 #DB Stuff
 #Variabvle to check if the db is already initialized
+global db_init
 db_init:bool = False
 #Engine Object
-engine:Engine = Engine()
+
 
 # init logger
 logger = logging.getLogger(__name__)
 
 def check_db():
+    global engine
     logger.info("Init database...")
     logger.info("read config...")
     
@@ -45,6 +46,7 @@ def check_db():
                 return False
             engine = create_engine(f"sqlite:///{db_path}")
             engine.connect()
+            logger.info("Engine created")
             db_init = True
             return True
         elif(db_driver == "mysql"):
@@ -54,6 +56,17 @@ def check_db():
             database_name = config.get("db", "db_name")
             engine = create_engine(f"mysql://{username}:{password}@{hostname}/{database_name}")
             engine.connect()
+            logger.info("Engine created")
+            db_init = True
+            return True
+        elif(db_driver == "memory"):
+            logger.info("Selected DB Driver is SQLite-Memory")
+
+            engine = create_engine("sqlite://" ,
+                    connect_args={'check_same_thread':False},
+                    poolclass=StaticPool)
+            engine.connect()
+            logger.info("Engine created")
             db_init = True
             return True
         else:
@@ -72,10 +85,13 @@ def check_table_exist(table_name:str):
         else:
             return False
     except Exception as e:
-        logging.error(f"Error while checking for table! - Error{e}")
+        logging.error(f"Error while checking for table! - Error: {e}")
+        exit()
 
 #This function can create a table bases on a defined JSON scheme
 def create_table(name:str, scheme:json):
+    if not db_init:
+        check_db()
     #Check if the table already exist. If so - SKIP
     if check_table_exist(name):
         logger.warning(f"Table {name} already exist! - SKIP")
@@ -83,11 +99,66 @@ def create_table(name:str, scheme:json):
 
     logger.info(f"Create table {name}")
     #Check if the scheme parameter is valid JSON
-    try:
-        data = json.loads(scheme)
-    except Exception as e:
-        logging.error(f"Error while reading JSON Scheme! - Error: {e}")
-        return False
+    if not type(scheme) == dict:
+        try:
+            data = json.loads(scheme)
+        except Exception as e:
+            logging.error(f"Error while reading JSON Scheme! - Error: {e}")
+            return False
+    else:
+        data = scheme
     
-    for column_name in scheme:
+    query:str = f"CREATE TABLE {name} ("
+    primary_key_defined = False
+    #Iterate over all defined columns. Check for different optionas and add them to the query.
+    for column_name in data:
+        logging.debug(f"Column_Name: {column_name}, Type: {scheme[column_name]}")
+        c_query = column_name
+        try:
+            options = scheme[column_name]
+        except Exception as e:
+            logger.error(f"Error while creating table! - Can't load options for coumn {column_name}")
+            return False
+
+        #For each column create a cache query based on SQL -> <<Name>> <<type>> <<options>>
+        if not "type" in options:
+            logging.error(f"Error while creating table! - Column {column_name} does not include a valid \"type\" field!")
+            return False
+        c_query += " " + options["type"]
+
+        if "not_null" in options and options["not_null"] == True:
+            c_query += " NOT NULL"
+
+        if "primary_key" in options and options["primary_key"] == True and not primary_key_defined:
+            c_query += " PRIMARY KEY"
+            primary_key_defined = True
+        elif "primary_key" in options and options["primary_key"] == True and primary_key_defined == True:
+            logging.warning(f"There are at least 2 primary keys defined! - Please check config. Ignore Primary Key {column_name}")
+
+        if "auto_increment" in options and options["auto_increment"] == True:
+            c_query += " AUTO_INCREMENT"
+        
+        if "unique" in options and options["unique"] == True:
+            c_query += " UNIQUE"
+
+        if "default" in options:
+            c_query += " DEFAULT " + options["default"]
+
+        query += c_query + ", "
+    query = query[:-2]
+    query +=");"
+    logging.debug(f"Query successfully generated. Query: {query}")
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(query))
+            conn.commit()
+            return True
+    except Exception as e:
+        logging.error(f"Error while executing creation Statement! - Error: {e}")
+        return False
+
+
+
+        
+
         

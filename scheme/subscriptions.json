@@ -4,14 +4,14 @@
         "table_needed": true,
         "table_name": "subscriptions",
         "columns": {
-            "id": ["integer PRIMARY KEY"],
-            "scheme": ["text"],
-            "subscription_name": ["text"],
-            "subscription_path": ["text"],
-            "subscriptions_last_checked": ["DATETIME DEFAULT CURRENT_TIMESTAMP"],
-            "subscriptions_last_created": ["DATETIME DEFAULT CURRENT_TIMESTAMP"],
-            "subscription_has_new_data": ["bool"],
-            "subscription_data": ["text"]
+            "id": {"type": "integer", "primary_key": true, "auto_increment": false, "not_null": true, "unique": false},
+            "scheme": {"type": "text", "not_null": true},
+            "subscription_name": {"type": "text", "not_null": true},
+            "subscription_path": {"type": "text", "not_null": true},
+            "subscriptions_last_checked": {"type": "DATETIME", "default": "CURRENT_TIMESTAMP"},
+            "subscriptions_last_created": {"type": "DATETIME", "default": "CURRENT_TIMESTAMP"},
+            "subscription_has_new_data": {"type": "integer", "not_null": true, "default": "0"},
+            "subscription_data": {"type": "text", "not_null": true}
         }
     }
 }
