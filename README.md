@@ -31,3 +31,6 @@ Supported values:
 - implementing scheme reader
 - creating requirements.txt
 - complete ReadME
+
+# Postponed todos
+- Implementing support for both SQLite and MySQL

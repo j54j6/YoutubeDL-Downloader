@@ -18,13 +18,14 @@
 
 
 # Own Modules
-from project_functions import check_dependencies
+from project_functions import check_dependencies, show_help
 from database_manager import db_init, check_db, check_table_exist, create_table
 from config_handler import config, check_for_config
 # Python Modules
 import logging
 import json
 import sys
+from prettytable import PrettyTable
 
 
 # Init. Logging
@@ -117,3 +118,34 @@ if not check_table_exist("subscriptions"):
     if not result:
         logging.error("Error while creating table! - Check log")
         exit()
+
+#All Tables exists needed to run this thing...
+logging.info("All mandatory tables are existing...")
+
+#Deciding action based on given arguments
+if len(sys.argv) > 1:
+    #Command provided
+    match sys.argv[1]:
+        case "help":
+            #provide help
+            show_help()
+        case "add-subscription":
+            #Add a new subscription
+            exit()
+        case "del-subscription":
+            #Delete a subscription
+            exit()
+        case "list-subscriptions":
+            #Show all subscriptions
+            exit()
+        case "custom":
+            #Download a custom Item without being part of a subscription
+            exit()
+        case "start":
+            #Run the script to check for new content and download it
+            exit()
+        case "validate":
+            #Rehash all files and compare them to the already stored files.
+            exit()
+else:
+    show_help()
