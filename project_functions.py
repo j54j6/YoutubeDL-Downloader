@@ -94,6 +94,7 @@ def check_dependencies():
             logging.error("Error while creating table! - Check log")
             exit()
 
+    return True
 
 def show_help():
     print("------------------------------ Help ------------------------------")

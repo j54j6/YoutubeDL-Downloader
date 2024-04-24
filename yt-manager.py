@@ -19,13 +19,11 @@
 
 # Own Modules
 from project_functions import check_dependencies, show_help
-from database_manager import db_init, check_db, check_table_exist, create_table
-from config_handler import config, check_for_config
+from database_manager import check_db
+from config_handler import check_for_config
 # Python Modules
 import logging
-import json
 import sys
-from prettytable import PrettyTable
 
 
 # Init. Logging
