@@ -66,6 +66,7 @@ def scheme_setup():
         
                         if not result:
                             logging.error(f"Error while creating table {scheme_data["db"]["table_name"]} for scheme {scheme}! - Check log")
+                            error_occured = True
                             continue
                         logging.info(f"Table {scheme_data["db"]["table_name"]} for scheme {scheme} successfully created!")
                         #If table is created check if there are any default values and add these
@@ -91,7 +92,9 @@ def scheme_setup():
         except Exception as e:
             logger.error(f"Error while initializing scheme {scheme}! - Error: {e}")
             return False
-    return True
+    if not error_occured:
+        return True
+    return False
 
 def check_dependencies():
     print("Dependency check called!")
@@ -427,11 +430,6 @@ def decide_storage_path(url, scheme):
     else:
         #No categories avail 
         return base_path
-
-final_filename = None
-def yt_dlp_monitor(self, d):
-    final_filename  = d.get('info_dict').get('_filename')
-    # You could also
 
 #This function downloads a file (url) and saves it to a defined path (path)
 def download_file(url):
