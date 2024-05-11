@@ -4,7 +4,7 @@
         "table_needed": true,
         "table_name": "subscriptions",
         "columns": {
-            "id": {"type": "integer", "primary_key": true, "auto_increment": false, "not_null": true, "unique": false},
+            "id": {"type": "integer", "primary_key": true, "auto_increment": true, "not_null": true, "unique": false},
             "scheme": {"type": "text", "not_null": true},
             "subscription_name": {"type": "text", "not_null": true},
             "subscription_path": {"type": "text", "not_null": true},

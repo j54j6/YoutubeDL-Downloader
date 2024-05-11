@@ -1,0 +1,65 @@
+{
+    "schema_name": "pornhub",
+    "url_template": true,
+    "db": {
+        "table_needed": false
+    },
+    "url_scheme": {
+        "tld": ["com", "org"],
+        "sld": ["pornhub"],
+        "subd": ["www", "cn", "cz", "de", "es", "fr", "it", "nl", "jp", "pt", "pl", "rt", ""]
+    },
+    "categories":
+    {
+        "available": true,
+        "needed": true,
+        "category_path": 1,
+        "categories": {
+            "pornstar": 
+            {
+                "direct_download": false,
+                "subscription": true,
+                "storage_path": "pornstars"
+            },
+            "model": 
+            {
+                "direct_download": false,
+                "subscription": true,
+                "storage_path": "model"
+            },
+            "channels": 
+            {
+                "direct_download": false,
+                "subscription": true,
+                "storage_path": "channels"
+            },
+            "users": 
+            {
+                "direct_download": false,
+                "subscription": true,
+                "storage_path": "users"
+            },
+            "playlist":
+            {
+                "direct_download": false,
+                "subscription": true,
+                "storage_path": "playlists"
+            },
+            "view_video.php":
+            {
+                "direct_download": true,
+                "subscription": false,
+                "storage_path": "custom"
+            }
+        }
+    },
+    "header": 
+    {
+        "Cookie": "accessAgeDisclaimerPH=1"
+    },
+    "storage":
+    {
+        "category_storage": true,
+        "base_path": "pornhub"
+    }
+}

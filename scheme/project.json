@@ -1,16 +1,19 @@
 {
     "schema_name": "project",
+    "url_template": false,
     "db": {
         "table_needed": true,
         "table_name": "config",
         "columns": {
-            "id": {"type": "integer", "primary_key": true, "auto_increment": false, "not_null": true, "unique": false},
+            "id": {"type": "integer", "primary_key": true, "auto_increment": true, "not_null": true, "unique": false},
             "option_name": {"type": "text", "not_null": true, "unique": true},
             "option_value": {"type": "text", "not_null": true},
             "datecreated": {"type": "DATETIME", "default": "CURRENT_TIMESTAMP"}
         },
         "rows": [
-            {"option_name": "base_location", "option_value": "./ytdownloader"}
+            {"option_name": "base_location", "option_value": "./ytdownloader"},
+            {"option_name": "use_tags_from_ydl", "option_value": "false"},
+            {"option_name": "remove_file_on_post_process_error", "option_value": "false"}
         ]
     }
 }

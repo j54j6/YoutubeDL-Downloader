@@ -18,12 +18,14 @@
 
 
 # Own Modules
-from project_functions import check_dependencies, show_help
+from project_functions import check_dependencies, show_help, direct_download, scheme_setup
 from database_manager import check_db
 from config_handler import check_for_config
 # Python Modules
 import logging
 import sys
+import pathlib
+#import argparse
 
 
 # Init. Logging
@@ -46,7 +48,7 @@ if not database_check_successful:
     exit()
 
 #Check database content
-dependencies = check_dependencies()
+dependencies = scheme_setup()
 
 if not dependencies:
     logging.error("Error while prepare dependencies... Check log.")
@@ -55,6 +57,14 @@ if not dependencies:
 #All Tables exists needed to run this thing...
 logging.info("All mandatory tables are existing...")
 
+#TODO
+#parser = parser = argparse.ArgumentParser(description="YT-DL Manager - Download and manage Videos from different sources. Further you can download new content completly automatic")
+#parser.add_argument("command", type=str, choices=["help", "add-subscription", "del-subscription", "list-subscriptions", "custom", "start", "validate"], help="Command - What do you want to do?")
+#parser.add_argument("--url", help="Url to add a subscription or directly download a video", default=None)
+
+#args = parser.parse_args()
+
+
 #Deciding action based on given arguments
 if len(sys.argv) > 1:
     #Command provided
@@ -62,8 +72,10 @@ if len(sys.argv) > 1:
         case "help":
             #provide help
             show_help()
+            exit()
         case "add-subscription":
             #Add a new subscription
+
             exit()
         case "del-subscription":
             #Delete a subscription
@@ -73,6 +85,12 @@ if len(sys.argv) > 1:
             exit()
         case "custom":
             #Download a custom Item without being part of a subscription
+            #parser = argparse
+            if len(sys.argv) > 2:
+                direct_download(sys.argv[2])
+            else:
+                logging.error("No url provided!")
+                show_help()
             exit()
         case "start":
             #Run the script to check for new content and download it

@@ -136,7 +136,7 @@ def create_table(name:str, scheme:json):
             logging.warning(f"There are at least 2 primary keys defined! - Please check config. Ignore Primary Key {column_name}")
 
         if "auto_increment" in options and options["auto_increment"] == True:
-            c_query += " AUTO_INCREMENT"
+            c_query += " AUTOINCREMENT"
         
         if "unique" in options and options["unique"] == True:
             c_query += " UNIQUE"
@@ -157,8 +157,70 @@ def create_table(name:str, scheme:json):
         logging.error(f"Error while executing creation Statement! - Error: {e}")
         return False
 
+#Fetch a value from a database based on a json filter {""}
+def fetch_value(table:str, row_name:str, value:str, filter:list = None, is_unique=False):
+    if not db_init:
+        check_db()
+    #Check if the table already exist. If so - SKIP
+    if not check_table_exist(table):
+        logger.warning(f"Table {table} does not exist!")
+        return False
+    
+    #create SELECT query
+    if filter != None:
+        query_filter = ""
+        for element in filter:
+            query_filter += element + ","
+        query_filter = query_filter[:-1]
+    else:
+        query_filter = "*"
+    query = F"SELECT {query_filter} from {table} WHERE {row_name} = \"{value}\""
+    logging.debug(f"Prepared Query: {query}")
+    try:
+        with engine.connect() as conn:
+            logging.debug(f"Prepared query: {query}")
+            data = conn.execute(text(query))
+            if not is_unique:
+                return data.all()
+            else:
+                return data.first()
+    except Exception as e:
+        logging.error(f"Error while executing Insert Statement! - Error: {e}")
+        return False
+    
+def insert_value(table:str, data:json):
+    if not db_init:
+        check_db()
+    if not check_table_exist(table):
+        logger.error(f"Table {table} does not exist!")
+        return False
+    keys = []
+    for data_keys in data:
+        keys.append(data_keys)
+    values = []
+    for data_values in data:
+        values.append(data[data_values])
+    keys = ",".join(keys)
+    values = ""
+    for value in data:
+        if type(data[value]) == str or type(data[value]) == json:
+            values += f"\"{data[value]}\","
+        elif type(data[value]) == int:
+            values += data[value] +","
+        elif type(data(value)) == bool:
+            values += data[value] +","
+        else:
+            logging.warning(f"Unsuported type {type(data[value])} for value {value}!")
+            continue
+    values = values[:-1]
+    query = f"Insert into {table} ({keys}) VALUES ({values});"
+    logging.debug(f"Prepared Query: {query}")
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(query))
+            conn.commit()
+            return True
+    except Exception as e:
+        logging.error(f"Error while executing Insert Statement! - Error: {e}")
+        return False
 
-
-        
-
-        

@@ -1,0 +1,25 @@
+{
+    "schema_name": "reddit",
+    "url_template": true,
+    "db": {
+        "table_needed": false
+    },
+    "url_scheme": {
+        "tld": ["com", "it"],
+        "sld": ["reddit", "redd"],
+        "subd": ["www", "", "packaged-media"]
+    },
+    "categories":
+    {
+        "available": false
+    },
+    "header": 
+    {
+        "Cookie": "accessAgeDisclaimerPH=1"
+    },
+    "storage":
+    {
+        "category_storage": false,
+        "base_path": "reddit"
+    }
+}

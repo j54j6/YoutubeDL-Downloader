@@ -44,7 +44,6 @@ def create_default_config(path=Path.joinpath(pathlib.Path(__file__).parent.resol
     except Exception as e:
         logger.error(f"Error while creating default config! - Error: {e}")
         return False
-    
 
 def check_for_config(path=False):
     #As fallback (per Default) the config is located in the same folder as the main.py. Set the default search path to the current file dir.
