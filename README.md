@@ -36,3 +36,4 @@ Supported values:
 
 # Postponed todos
 - Implementing support for both SQLite and MySQL
+- Removing Problems with SQL Injection -> Currently I don't know how to dynamically pass non literals (like tablenames or selectors) since they are not supported for binding in python.

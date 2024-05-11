@@ -26,7 +26,7 @@ import tldextract
 import hashlib
 
 #own modules
-from database_manager import check_table_exist, create_table, insert_value, fetch_value
+from database_manager import check_table_exist, create_table, insert_value, fetch_value, fetch_value_as_bool
 
 # init logger
 logger = logging.getLogger(__name__)
@@ -74,7 +74,6 @@ def scheme_setup():
                             logger.info(f"Found default values for scheme {scheme} - Insert into table")
                             for option in scheme_data["db"]["rows"]:
                                 #Iterate over all default options and insert them to the config table
-                                print(f"insert {option}")
                                 row_inserted = insert_value(scheme_data["db"]["table_name"], option)
                                 if not row_inserted:
                                     logger.error(f"Error while inserting row: {option}!")
@@ -297,7 +296,7 @@ def fetch_scheme_file_by_file(url):
 
             if(validate_scheme(url, scheme)):
                 logging.info(F"Found suitable scheme file - Scheme used: {scheme_file}")
-                return os.path.join(scheme_folder, scheme_file)
+                return [os.path.join(scheme_folder, scheme_file), scheme_file]
         else:
             continue
 
@@ -323,7 +322,7 @@ def fetch_scheme_file(url:str):
             return scheme_check
     logging.info(f"Scheme file for {parsed_url.domain} found")
     logging.info(f"Check if provided url is valid for scheme {parsed_url.domain}")
-    return expected_scheme_path
+    return [expected_scheme_path, str(parsed_url.domain + ".json")]
 
 def load_json_file(path:str):
     if not os.path.isfile(path):
@@ -511,6 +510,14 @@ def direct_download(url:str):
         logging.error("Can't download video! - Url can not be reached! - Check log above!")
         return False
     
+    #Check if url is already in db (this can only detect if a video was already downloaded from the same source). A reuploaded video will be downlaoded again (url is different) - later when the hash is checked it will be dropped again
+    url_already_exist = fetch_value("items", "url", url, ["url"], True)
+
+    logger.info("Check if file already exist...")
+    if url_already_exist != None:
+        logging.info("File already exist! - Skip download")
+        return True
+    logger.info("File dont exist. Start download...")
     #Any videoplatform could need some special handling in order to use youtube_dl. Things like age verification. This can be done with templates to add headers for example
     logger.info("Check for suitable template to download video")
 
@@ -521,7 +528,7 @@ def direct_download(url:str):
         return False
     
     #Load Scheme
-    scheme = load_json_file(scheme_path)
+    scheme = load_json_file(scheme_path[0])
     if not scheme:
         logging.error("Error while loading scheme! - Check log")
         return False
@@ -575,8 +582,8 @@ def direct_download(url:str):
     #Check if hash created successfully
     if not hash or len(hash) != 2:
         logger.error("Error while creating hash from file! - Please check log.")
-        remove_file = fetch_value("config", "option_name", "remove_file_on_post_process_error", ["option_value"], True)
-        if remove_file[0] == True:
+        remove_file = fetch_value_as_bool("config", "option_name", "remove_file_on_post_process_error", ["option_value"], True)
+        if remove_file:
             logger.info("Remove file due to config setting.")
             os.remove(full_file_path)
             if os.path.exists(full_file_path):
@@ -596,7 +603,53 @@ def direct_download(url:str):
 
     if not hash_exist:
         #Video hash not exist as saved item add it...
-        exit()
+        logger.info("Add Video to DB")
+        head, tail = os.path.split(full_file_path)
+        logging.debug(f"Scheme Data: {scheme_path}")
+
+        use_tags_ydl = fetch_value_as_bool("config", "option_name", "use_tags_from_ydl", ["option_value"], True)
+
+        #Define base data 
+        video_data = {
+            "scheme": scheme_path[1],
+            "file_name": tail, 
+            "file_path": head,
+            "file_hash": hash[1],
+            "url": url,
+            "data": metadata
+        }
+
+        if use_tags_ydl:
+            logging.info("Also insert tags from ydl metadata")
+            if "tags" in metadata:
+                logging.debug("Found key 'tags'")
+                if len(metadata["tags"]) > 0:
+                    logging.debug("Tags found...")
+                    video_data["tags"] = metadata["tags"]
+                else:
+                    logging.debug("Tags array is empty!")
+            else:
+                logger.debug("No tags key found in metadata")
+        else:
+            logging.info("Tags are not inserted from ydl")
+
+        video_registered = insert_value("items", video_data)
+
+        if not video_registered:
+            logger.error("Error while saving file to db!! - Please check log.")
+            remove_file = fetch_value_as_bool("config", "option_name", "remove_file_on_post_process_error", ["option_value"], True)
+            if remove_file:
+                logger.info("Remove file due to config setting.")
+                os.remove(full_file_path)
+                if os.path.exists(full_file_path):
+                    logging.error("Error while removing video after post processing error! - Check permissions")
+                    return False
+                else:
+                    logger.info("File removed")
+                    return False
+            else:
+                logger.warning("File will not be removed! - Be cautious, the file is not saved in the db!")
+                return False
     else:
         #hash already exist - check if url is the same. If not add it to url
         exit()

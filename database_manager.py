@@ -48,10 +48,11 @@ def check_db():
         if(db_driver == "sqlite"):
             logger.info("Selected DB Driver is SQLite")
             db_path = os.path.abspath(config.get("db", "db_path"))
-
-            if not os.path.exists(db_path):
-                logging.error("The given path %s does not exists!", db_path)
-                return False
+            
+            #Not needed - SQLite creates a db file if it not exist
+            #if not os.path.exists(db_path):
+            #    logging.error("The given path %s does not exists!", db_path)
+            #    return False
             
             #OLD SQL ALCHEMY CODE
             #engine = create_engine(f"sqlite:///{db_path}")
@@ -279,6 +280,30 @@ def fetch_value(table:str, row_name:str, value:str, filter:list = None, is_uniqu
         logging.error(f"Error while fetching value from table {table} Error: {e}")
         return False
 
+def fetch_value_as_bool(table:str, row_name:str, value:str, filter:list = None, is_unique=False):
+    try:
+        value = fetch_value(table, row_name, value, filter, is_unique)
+        value = value[0]
+
+        if type(value) == str:
+            value = value.lower()
+            if value == "true" or value == "1":
+                return True
+            else:
+                return False
+        elif type(value) == int:
+            if value == 1:
+                return True
+            else:
+                return False
+        else:
+            logger.error(f"Error while converting fetched \"{value}\" value to bool! - Unsupported type {type(value)}")
+            return False
+        
+    except Exception as e:
+        logging.error(f"Error while converting fetched value to bool! - Check log... - Error: {e}")
+        return False
+
 def insert_value(table:str, data:json):
     if not db_init:
         init = check_db()
@@ -291,23 +316,45 @@ def insert_value(table:str, data:json):
     keys = []
     for data_keys in data:
         keys.append(data_keys)
-    values = []
-    for data_values in data:
-        values.append(data[data_values])
-    keys = ",".join(keys)
     
-    values = ""
+    keys = ",".join(keys)
+
+    #OLD
+    #values = ""
+    #for value in data:
+    #    try:
+    #        if type(data[value]) == str:
+    #            escaped_str = str(data[value]).replace('"', '\\"')
+    #            values += f"\"{escaped_str}\","
+    #        elif type(data[value]) == dict or type(data[value]) == json:
+    #            try:
+    #                json_data = json.dumps(data[value])
+    #            except Exception as e:
+    #                logging.error(f"Error while dumping json content! - Error: {e}")
+    #                exit()
+    #            values += json_data+ ","
+    #        elif type(data[value]) == int:
+    #            values += data[value] +","
+    #        elif type(data(value)) == bool:
+    #            values += data[value] +","
+    #        else:
+    #            logging.warning(f"Unsuported type {type(data[value])} for value {value}!")
+    #            continue
+    #    except Exception as e:
+    #        logging.error("Error while converting ")
+    #values = values[:-1]
+
+    values = []
     for value in data:
-        if type(data[value]) == str or type(data[value]) == json:
-            values += f"\"{data[value]}\","
-        elif type(data[value]) == int:
-            values += data[value] +","
-        elif type(data(value)) == bool:
-            values += data[value] +","
-        else:
-            logging.warning(f"Unsuported type {type(data[value])} for value {value}!")
-            continue
-    values = values[:-1]
+        try:
+            if type(data[value]) == dict or type(data[value]) == list:
+                dict_data = json.dumps(data[value])
+                values.append(dict_data)
+            else:
+                values.append(data[value])
+        except Exception as e:
+            logging.error("Error while converting ")
+
 
     #OLD SQL ALCHEMY CODE
     #query = f"Insert into {table} ({keys}) VALUES ({values});"
@@ -323,8 +370,13 @@ def insert_value(table:str, data:json):
 
     try:
         cursor = engine.cursor()
-        query = f"Insert into  {table} ({keys}) VALUES ({values})"
-        cursor.execute(query)
+        len_data = len(data)
+        value_placeholder = ""
+        for i in range(len_data):
+            value_placeholder += "?,"
+        value_placeholder =  value_placeholder[:-1]
+        query = f"Insert into  {table} ({keys}) VALUES ({value_placeholder})"
+        cursor.execute(query, values)
         engine.commit()
         
         #Maybe a check if all data are inserted will be added in the future by adding a select statement (call fetch function)
