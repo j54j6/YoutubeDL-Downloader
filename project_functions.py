@@ -366,19 +366,19 @@ def validate_scheme(url, scheme, silent=False):
         logging.error("Provided Scheme is not valid! - Check log")
         return False
 
-    parsedUurl = tldextract.extract(url)
+    parsedUrl = tldextract.extract(url)
     #Check if the provided url matches the filter of the given scheme
-    if not parsedUurl.suffix in scheme["url_scheme"]["tld"]:
+    if not parsedUrl.suffix in scheme["url_scheme"]["tld"]:
         if not silent:
-            logging.error(f"Provided url does not match the requirements for the {parsedUurl.domain} scheme! - TLD '{parsedUurl.suffix}' is not supported! - scheme name: {scheme["schema_name"]}")
+            logging.error("Provided url does not match the requirements for the %s scheme! - TLD '%s' is not supported! - scheme name: %s", parsedUrl.domain, parsedUrl.suffix, scheme["schema_name"])
         return False
-    if not parsedUurl.domain in scheme["url_scheme"]["sld"]:
+    if not parsedUrl.domain in scheme["url_scheme"]["sld"]:
         if not silent:
-            logging.error(f"Provided url does not match the requirements for the {parsedUurl.domain} scheme! - SLD '{parsedUurl.domain}' is not supported! - scheme name: {scheme["schema_name"]}")
+            logging.error("Provided url does not match the requirements for the %s scheme! - SLD '%s' is not supported! - scheme name: %s", parsedUrl.domain, parsedUrl.domain, scheme["schema_name"])
         return False
-    if not parsedUurl.subdomain in scheme["url_scheme"]["subd"]:
+    if not parsedUrl.subdomain in scheme["url_scheme"]["subd"]:
         if not silent:
-            logging.error(f"Provided url does not match the requirements for the {parsedUurl.domain} scheme! - Subdomain '{parsedUurl.subdomain}' is not supported! - scheme name: {scheme["schema_name"]}")
+            logging.error("Provided url does not match the requirements for the %s scheme! - Subdomain '%s' is not supported! - scheme name: %s", parsedUrl.domain, parsedUrl.subdomain, scheme["schema_name"])
         return False
     return True
 

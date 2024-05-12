@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+"""
 #
 # Project by j54j6
 # This program is used to make a private copy of youtube videos and potentially
@@ -17,6 +18,8 @@
 # In general this projects is made out of different modules (see ReadME ).
 # This file combines them...
 #
+"""
+
 
 # Python Modules
 import logging
@@ -37,43 +40,43 @@ logger = logging.getLogger(__name__)
 logger.info("Running startup checks...")
 
 #Check for config File
-configLoaded = check_for_config()
-if not configLoaded:
+ConfigLoaded = check_for_config()
+if not ConfigLoaded:
     logger.error("Error while loading config! - Check log...")
     sys.exit()
 
 #Check for database and init
-databaseCheckSuccessful = check_db()
-if not databaseCheckSuccessful:
+DatabaseCheckSuccessful = check_db()
+if not DatabaseCheckSuccessful:
     logging.error("Error while initializing DB! - Please check log...")
     sys.exit()
 
 #Check database content
-dependencies = scheme_setup()
+Dependencies = scheme_setup()
 
-if not dependencies:
+if not Dependencies:
     logging.error("Error while prepare dependencies... Check log.")
     sys.exit()
 
 #All Tables exists needed to run this thing...
 logging.info("All mandatory tables are existing...")
 
-#POSTPONED 
+#POSTPONED
 #parser = argparse.ArgumentParser(
-#description="""YT-DL Manager - Download and manage Videos from different sources. 
+#description="""YT-DL Manager - Download and manage Videos from different sources.
 #               Further you can download new content completly automatic""")
-#parser.add_argument("command", 
-#       type=str, 
-#       choices=["help", 
-#       "add-subscription", 
-#       "del-subscription", 
-#       "list-subscriptions", 
-#       "custom", 
-#       "start", 
-#       "validate"], 
+#parser.add_argument("command",
+#       type=str,
+#       choices=["help",
+#       "add-subscription",
+#       "del-subscription",
+#       "list-subscriptions",
+#       "custom",
+#       "start",
+#       "validate"],
 #help="Command - What do you want to do?")
-#parser.add_argument("--url", 
-#           help="Url to add a subscription or directly download a video", 
+#parser.add_argument("--url",
+#           help="Url to add a subscription or directly download a video",
 #           default=None)
 
 #args = parser.parse_args()
@@ -111,6 +114,6 @@ if len(sys.argv) > 1:
             sys.exit()
         case "validate":
             #Rehash all files and compare them to the already stored files.
-            sys.sys.exit()
+            sys.exit()
 else:
     show_help()
