@@ -17,14 +17,14 @@
 import os
 import logging
 import json
-
 import pathlib
-import tldextract
 import hashlib
 
 import urllib.parse as urlparse
 
 import requests
+import tldextract
+
 from prettytable import PrettyTable
 from yt_dlp import YoutubeDL
 
@@ -541,6 +541,7 @@ def load_scheme(url: str):
         logging.error("Error while validating scheme! - Check log")
         return return_scheme
     
+    return_scheme["status"] = True
     return_scheme["scheme"] = scheme
     return_scheme["scheme_path"] = scheme_path
     return return_scheme
@@ -570,7 +571,7 @@ def direct_download(url:str):
     scheme = load_scheme(url)
 
     if not scheme["status"]:
-        logging.error("Error while loading scheme! - Check log")
+        logging.error("Error while loading scheme data! - Check log")
         return False
     
     scheme_path = scheme["scheme_path"]
