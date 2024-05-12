@@ -17,13 +17,14 @@
 import os
 import logging
 import json
-import requests
+
 import pathlib
 import tldextract
 import hashlib
 
 import urllib.parse as urlparse
 
+import requests
 from prettytable import PrettyTable
 from yt_dlp import YoutubeDL
 
@@ -680,16 +681,11 @@ def direct_download(url:str):
                 os.remove(full_file_path)
                 if os.path.exists(full_file_path):
                     logging.error("Error while removing video after post processing error! - Check permissions")
-                    return False
-                else:
-                    logger.info("File removed")
-                    return False
-            else:
-                logger.warning("File will not be removed! - Be cautious, the file is not saved in the db!")
                 return False
-        else:
-            logger.info("Video successfully saved. - Finished")
-            return True
+            logger.warning("File will not be removed! - Be cautious, the file is not saved in the db!")
+            return False
+        logger.info("Video successfully saved. - Finished")
+        return True
     else:
         #hash already exist - check if url is the same. If not add it to url
         return False
