@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+"""
 #
 # Project by j54j6
 # This program is used to make a private copy of youtube videos and potentially other websites supported by youtubedl
@@ -11,12 +11,9 @@
 # This file contains the "Project specific funtions" this means that all functions I cannot reuse in other projects 
 # like controls or checks are located inside this file. 
 #
+"""
+
 #Python modules
-from prettytable import PrettyTable
-from yt_dlp import YoutubeDL
-
-import urllib.parse as urlparse
-
 import os
 import logging
 import json
@@ -24,6 +21,11 @@ import requests
 import pathlib
 import tldextract
 import hashlib
+
+import urllib.parse as urlparse
+
+from prettytable import PrettyTable
+from yt_dlp import YoutubeDL
 
 #own modules
 from database_manager import check_table_exist, create_table, insert_value, fetch_value, fetch_value_as_bool
@@ -222,7 +224,7 @@ def alive_check(url: str):
         if requested_url.status_code == 200:
             return True
         else:
-            logging.warning(f"The requested url {url} can not be reached. Excepted result is HTTP 200 but got HTTP {requested_url.status_code}")
+            logging.warning("The requested url %s can not be reached. Excepted result is HTTP 200 but got HTTP %s", url, requested_url.status_code)
             return False
     except requests.ConnectionError as e:
         logger.error("Error while checking if url is alive! - Maybe you passed an invalid url? - Error: %s", e)
@@ -274,7 +276,7 @@ def validate_url_scheme(scheme:json):
     return True
 
 def fetch_category_name(url:str, scheme:json):
-    logging.debug(f"Fetch category for url {url}")
+    logging.debug("Fetch category for url %s", url)
     category_path = 1
     if "category_path" in scheme["categories"]:
         category_path = scheme["categories"]["category_path"]
@@ -301,17 +303,17 @@ def fetch_scheme_file_by_file(url):
         scheme = load_json_file(os.path.join(scheme_folder, scheme_file))
 
         if not scheme:
-            logging.error(f"Error while reading scheme file {scheme_file}")
+            logging.error("Error while reading scheme file %s", scheme_file)
             continue
         
         #Check if the scheme file is a url template (used for websites) or a system template (for local use)
         if "url_template" in scheme and scheme["url_template"] == True:
             if not validate_url_scheme(scheme):
-                logging.error(f"Scheme {scheme_file} is not a valid url scheme!")
+                logging.error("Scheme %s is not a valid url scheme!", scheme_file)
                 continue
 
             if(validate_scheme(url, scheme)):
-                logging.info(F"Found suitable scheme file - Scheme used: {scheme_file}")
+                logging.info("Found suitable scheme file - Scheme used: %s", scheme_file)
                 return [os.path.join(scheme_folder, scheme_file), scheme_file]
         else:
             continue
@@ -332,12 +334,12 @@ def fetch_scheme_file(url:str):
         scheme_check = fetch_scheme_file_by_file(url)
 
         if not scheme_check:
-            logging.error(f"There is no matching scheme file for site {parsed_url.domain}!")
+            logging.error("There is no matching scheme file for site %s!", parsed_url.domain)
             return False
         else:
             return scheme_check
     logging.info("Scheme file for %s found", parsed_url.domain)
-    logging.info("Check if provided url is valid for scheme", parsed_url.domain)
+    logging.info("Check if provided url %s is valid for scheme", parsed_url.domain)
     return [expected_scheme_path, str(parsed_url.domain + ".json")]
 
 def load_json_file(path:str):
@@ -414,16 +416,16 @@ def decide_storage_path(url, scheme):
 
             #Check if the given category is in the categories list
             if not category_name in scheme["categories"]["categories"]:
-                logging.error(f"Category {category_name} is not defined!")
+                logging.error("Category %s is not defined!", category_name)
                 return False
             
-            logging.debug(f"Provided category {category_name} is known... Check for custom storage path")
+            logging.debug("Provided category %s is known... Check for custom storage path", category_name)
 
             if "storage_path" in scheme["categories"]["categories"][category_name]:
                 base_path = os.path.join(base_path, scheme["categories"]["categories"][category_name]["storage_path"])
-                logging.debug(f"Custom category path is defined. Storage path is {base_path}")
+                logging.debug("Custom category path is defined. Storage path is %s", base_path)
             else:
-                logging.info(f"Category {category_name} don't have an individual storage path! - Use path {base_path}")
+                logging.info("Category %s don't have an individual storage path! - Use path %s", category_name, base_path)
             return base_path
 
 
@@ -490,7 +492,7 @@ def get_file_data(url, path):
             #We only need the metadata. So we don't need to download the whole file. We will do this later...
             file_data = ydl.extract_info(url, download=False)
     except Exception as e:
-        logging.error(f"Error while fetching File information from target server! - Error: {e}")
+        logging.error("Error while fetching File information from target server! - Error: %s", e)
         return False
 
     #Check if result have any content
@@ -500,7 +502,7 @@ def get_file_data(url, path):
         else:
             return False
     except Exception as e:
-        logger.error(f"Error result seems to have no content! - \n\n Result: {file_data} \n Error: {e}")
+        logger.error("Error result seems to have no content! - \n\n Result: %s \n Error: %s", file_data, e)
         return False
 
 #Create a hash from a given file
@@ -515,8 +517,32 @@ def create_hash_from_file(file):
                 fb = f.read(BUF_SIZE) # Read the next block from the file
         return [file, hash_obj.hexdigest()]
     except Exception as e:
-        logging.error(f"Error while creating hash of file! - Error: {e}")
+        logging.error("Error while creating hash of file! - Error: %s", e)
         return False
+
+#This function is used to load the correct scheme based on an url
+def load_scheme(url: str):
+    return_scheme = {"status": False, "scheme": None, "scheme_path": None}
+    #Search for scheme
+    scheme_path = fetch_scheme_file(url)
+    if not scheme_path:
+        logging.error("Error while fetching scheme! - Check log")
+        return return_scheme
+    
+    #Load Scheme
+    scheme = load_json_file(scheme_path[0])
+    if not scheme:
+        logging.error("Error while loading scheme! - Check log")
+        return return_scheme
+
+    #Check if scheme is valid
+    if not validate_scheme(url, scheme):
+        logging.error("Error while validating scheme! - Check log")
+        return return_scheme
+    
+    return_scheme["scheme"] = scheme
+    return_scheme["scheme_path"] = scheme_path
+    return return_scheme
 
 #This function represents the "manual" video download approach
 def direct_download(url:str):
@@ -530,9 +556,9 @@ def direct_download(url:str):
         return False
     
     #Check if url is already in db (this can only detect if a video was already downloaded from the same source). A reuploaded video will be downlaoded again (url is different) - later when the hash is checked it will be dropped again
-    url_already_exist = fetch_value("items", "url", url, ["url"], True)
-
     logger.info("Check if file already exist...")
+
+    url_already_exist = fetch_value("items", "url", url, ["url"], True)
     if url_already_exist != None:
         logging.info("File already exist! - Skip download")
         return True
@@ -540,22 +566,14 @@ def direct_download(url:str):
     #Any videoplatform could need some special handling in order to use youtube_dl. Things like age verification. This can be done with templates to add headers for example
     logger.info("Check for suitable template to download video")
 
-    #Search for scheme
-    scheme_path = fetch_scheme_file(url)
-    if not scheme_path:
-        logging.error("Error while fetching scheme! - Check log")
-        return False
-    
-    #Load Scheme
-    scheme = load_json_file(scheme_path[0])
-    if not scheme:
+    scheme = load_scheme(url)
+
+    if not scheme["status"]:
         logging.error("Error while loading scheme! - Check log")
         return False
-
-    #Check if scheme is valid
-    if not validate_scheme(url, scheme):
-        logging.error("Error while validating scheme! - Check log")
-        return False
+    
+    scheme_path = scheme["scheme_path"]
+    scheme = scheme["scheme"]
 
     #Scheme is valid. Decicde where to save the file (Check for categories). Read general config and do the stuff...
     path = decide_storage_path(url, scheme)
@@ -589,7 +607,7 @@ def direct_download(url:str):
     'ignoreerrors': True,
     'replace-in-metadata': True,
     'restrict-filenames': True
-}
+    }
     
     full_file_path = YoutubeDL(ydl_opts).prepare_filename(metadata, outtmpl=path + '/%(title)s.%(ext)s')
     full_file_path = os.path.abspath(full_file_path)
@@ -624,7 +642,7 @@ def direct_download(url:str):
         #Video hash not exist as saved item add it...
         logger.info("Add Video to DB")
         head, tail = os.path.split(full_file_path)
-        logging.debug(f"Scheme Data: {scheme_path}")
+        logging.debug("Scheme Data: %s", scheme_path)
 
         use_tags_ydl = fetch_value_as_bool("config", "option_name", "use_tags_from_ydl", ["option_value"], True)
 
@@ -669,9 +687,12 @@ def direct_download(url:str):
             else:
                 logger.warning("File will not be removed! - Be cautious, the file is not saved in the db!")
                 return False
+        else:
+            logger.info("Video successfully saved. - Finished")
+            return True
     else:
         #hash already exist - check if url is the same. If not add it to url
-        exit()
+        return False
 
 
     
