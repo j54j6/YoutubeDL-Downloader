@@ -56,7 +56,7 @@ def scheme_setup():
                 if scheme_data["db"]["table_needed"] == True:
                     #Check if table exists - if not create it
                     if not "table_name" in scheme_data["db"]:
-                        logging.error("Error while checking for table in schema {schema}. Key table_name is missing!")
+                        logging.error("Error while checking for table in schema %s. Key table_name is missing!", scheme)
                         error_occured = True
                         continue
                     table_exists = check_table_exist(scheme_data["db"]["table_name"])
@@ -65,39 +65,40 @@ def scheme_setup():
                         result = create_table(scheme_data["db"]["table_name"], scheme_data["db"]["columns"])
         
                         if not result:
-                            logging.error(f"Error while creating table {scheme_data["db"]["table_name"]} for scheme {scheme}! - Check log")
+                            logging.error("Error while creating table %s for scheme %s! - Check log", scheme_data["db"]["table_name"], scheme)
                             error_occured = True
                             continue
-                        logging.info(f"Table {scheme_data["db"]["table_name"]} for scheme {scheme} successfully created!")
+                        logging.info("Table %s for scheme %s successfully created!", scheme_data["db"]["table_name"], scheme)
                         #If table is created check if there are any default values and add these
                         if "rows" in scheme_data["db"]:
-                            logger.info(f"Found default values for scheme {scheme} - Insert into table")
+                            logger.info("Found default values for scheme %s - Insert into table", scheme)
                             for option in scheme_data["db"]["rows"]:
                                 #Iterate over all default options and insert them to the config table
                                 row_inserted = insert_value(scheme_data["db"]["table_name"], option)
                                 if not row_inserted:
-                                    logger.error(f"Error while inserting row: {option}!")
+                                    logger.error("Error while inserting row: %s!", option)
                                     continue
                                 logger.debug("Row inserted")
                         else:
-                            logging.debug(f"There are no default rows in scheme {scheme}")
+                            logging.debug("There are no default rows in scheme %s", scheme)
                             continue
                 else:
-                    logging.debug(f"Scheme {scheme} does not need a table - SKIP")
+                    logging.debug("Scheme %s does not need a table - SKIP", scheme)
                     continue
             else:
-                logging.debug(f"Scheme {scheme} does not contain a db key - SKIP")
+                logging.debug("Scheme %s does not contain a db key - SKIP", scheme)
                 continue
+        except json.JSONDecodeError:
+            logger.error("Error while initializing scheme %s! - JSON Error: %s", scheme, e)
+            return False
         except Exception as e:
-            logger.error(f"Error while initializing scheme {scheme}! - Error: {e}")
+            logger.error("Error while initializing scheme %s! - Error: %s", scheme, e)
             return False
     if not error_occured:
         return True
     return False
 
 def check_dependencies():
-    print("Dependency check called!")
-    exit()
     #Check if needed tables existing ("config", "items", "subscriptions")
     logger.info("Check if all tables exist..")
     if not check_table_exist("config"):
@@ -106,15 +107,21 @@ def check_dependencies():
         try:
             with open("./scheme/project.json") as config_scheme: 
                 config_data = config_scheme.read()
+        except FileNotFoundError:
+            logger.error("Error while reading Config Scheme! - Error: %s", e)
+            exit()
         except Exception as e:
-            logger.error(f"Error while reading Config Scheme! - Error: {e}")
+            logger.error("Error while reading Config Scheme! - Error: %s", e)
             exit()
 
         try:
             config_data_as_json = json.loads(config_data)
             logging.debug("Config Data loaded - create table..")
+        except json.JSONDecodeError as e:
+            logger.error("Error while parsing JSON from config Scheme! - Error: %s", e)
+            exit()
         except Exception as e:
-            logger.error(f"Error while parsing JSON from config Scheme! - Error: {e}")
+            logger.error("Error while parsing JSON from config Scheme! - Error: %s", e)
             exit()
 
         result = create_table(config_data_as_json["db"]["table_name"], config_data_as_json["db"]["columns"])
@@ -134,15 +141,21 @@ def check_dependencies():
         try:
             with open("./scheme/saved_items.json") as table_scheme: 
                 column_data = table_scheme.read()
+        except FileNotFoundError as e:
+            logger.error("Error while reading items table Scheme! - FILE Error: %s", e)
+            exit()
         except Exception as e:
-            logger.error(f"Error while reading items table Scheme! - Error: {e}")
+            logger.error("Error while reading items table Scheme! - Error: %s", e)
             exit()
 
         try:
             column_data_as_json = json.loads(column_data)
             logging.debug("Config Data loaded - create table..")
+        except json.JSONDecodeError as e:
+            logger.error("Error while parsing JSON from config Scheme! - JSON Error: %s", e)
+            exit()
         except Exception as e:
-            logger.error(f"Error while parsing JSON from config Scheme! - Error: {e}")
+            logger.error("Error while parsing JSON from config Scheme! - Error: %s", e)
             exit()
 
         result = create_table(column_data_as_json["db"]["table_name"], column_data_as_json["db"]["columns"])
@@ -211,8 +224,11 @@ def alive_check(url: str):
         else:
             logging.warning(f"The requested url {url} can not be reached. Excepted result is HTTP 200 but got HTTP {requested_url.status_code}")
             return False
+    except requests.ConnectionError as e:
+        logger.error("Error while checking if url is alive! - Maybe you passed an invalid url? - Error: %s", e)
+        return False
     except Exception as e:
-        logger.error(f"Error while checking if url is alive! - Maybe you passed an invalid url? - Error: {e}")
+        logger.error("Error while checking if url is alive! - Maybe you passed an invalid url? - Error: %s", e)
         return False
 
 #This function is used to validate loaded url schemes. It ensures that a defined set of instructions are availiable
@@ -226,7 +242,7 @@ def validate_url_scheme(scheme:json):
             all_keys_exist = False
 
     if not all_keys_exist:
-        logging.error(f"Some required keys are missing in the given scheme file! - Please check your scheme. - Required keys: {needed_keys}")
+        logging.error("Some required keys are missing in the given scheme file! - Please check your scheme. - Required keys: %s", needed_keys)
         return False
 
     #Check keys needed for url validation
@@ -320,19 +336,22 @@ def fetch_scheme_file(url:str):
             return False
         else:
             return scheme_check
-    logging.info(f"Scheme file for {parsed_url.domain} found")
-    logging.info(f"Check if provided url is valid for scheme {parsed_url.domain}")
+    logging.info("Scheme file for %s found", parsed_url.domain)
+    logging.info("Check if provided url is valid for scheme", parsed_url.domain)
     return [expected_scheme_path, str(parsed_url.domain + ".json")]
 
 def load_json_file(path:str):
     if not os.path.isfile(path):
-        logging.error(f"The provided file does not exist! - Can't open file {path}")
+        logging.error("The provided file does not exist! - Can't open file %s", path)
         return False
     try:
         with open(path, "r") as file:
             json_file = json.loads(file.read())
+    except json.JSONDecodeError as e:
+        logging.error("Error while reading json file! - JSON Error: %s", e)
+        return False
     except Exception as e:
-        logging.error(f"Error while reading json file! - Error: {e}")
+        logging.error("Error while reading json file! - Error: %s", e)
         return False
     return json_file
 
@@ -378,7 +397,7 @@ def decide_storage_path(url, scheme):
             logging.error("Error while fetching scheme base path! - \"base_path\" is not defined as key! - Ignore it and use base path from general config")
         else:
             base_path = os.path.join(base_path, scheme["storage"]["base_path"])
-            logging.debug(f"Base path of scheme is: {base_path}")
+            logging.debug("Base path of scheme is: %s", base_path)
     else:
         logging.warning("Scheme does not provide it's own storage path! - Save data to the base directory")
 
