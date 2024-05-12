@@ -25,6 +25,7 @@ loaded:bool = False
 #default config_name
 default_config_name:str = "config.ini"
 
+#This function is used to define a default config.
 def create_default_config(
         path=Path.joinpath(pathlib.Path(__file__).parent.resolve(), "config.ini")
     ):
@@ -47,6 +48,7 @@ def create_default_config(
         logger.error("Error while creating default config! - Error: %s", e)
         return False
 
+#This function checks if a given path is a valid .ini file
 def check_for_config(path=False):
     #As fallback (per Default) the config is located in the same folder as the main.py.
     #Set the default search path to the current file dir.
@@ -60,12 +62,14 @@ def check_for_config(path=False):
             if path.lower().endwith(".ini"):
                 check_path = Path(path)
             else:
-                logger.error("The given file %s does not end with \".ini\". Only INI Files are supported", path)
+                logger.error("""The given file %s does not end with \".ini\".
+                             Only INI Files are supported""", path)
                 sys.exit()
         except TypeError as e:
-            logger.error("Error while converting given configuration path to Path Object. Error: %s", e)
+            logger.error("""Error while converting given configuration path to Path Object.
+                         Error: %s""", e)
             sys.exit()
-        
+
     logger.info("Check for config file. Provided path: %s", path)
 
     #Check if check_path exists on the filesystem
@@ -73,7 +77,7 @@ def check_for_config(path=False):
         logger.error("Config file does not exist! - Create default config...")
         config_created:bool = create_default_config()
 
-        if(not config_created):
+        if not config_created:
             sys.exit()
 
     #Config File exists - check if it is valid json (load file)
