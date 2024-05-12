@@ -2,7 +2,7 @@
 
 #
 # Project by j54j6
-# This file provides a simple abstraction layer to handle ini configuration files 
+# This file provides a simple abstraction layer to handle ini configuration files
 #
 
 # Python Modules
@@ -35,7 +35,6 @@ def create_default_config(path=Path.joinpath(pathlib.Path(__file__).parent.resol
     config.set('db', 'db_host', 'localhost')
     config.set('db', 'db_user', 'username')
     config.set('db', 'db_pass', 'password')
-
 
     try:
         with open(path, 'w') as f:
