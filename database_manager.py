@@ -33,13 +33,14 @@ engine = None
 logger = logging.getLogger(__name__)
 
 def check_db():
+    """This function is used to initialize the database. """
     global engine
     global db_init
     logger.info("Init database...")
     logger.info("read config...")
     
     if not config:
-        logging.error("Config is not initialized! - Please init first!")
+        logger.error("Config is not initialized! - Please init first!")
         return False
 
     db_driver = config.get("db", "db_driver")
@@ -50,7 +51,7 @@ def check_db():
             
             #Not needed - SQLite creates a db file if it not exist
             #if not os.path.exists(db_path):
-            #    logging.error("The given path %s does not exists!", db_path)
+            #    logger.error("The given path %s does not exists!", db_path)
             #    return False
             
             #OLD SQL ALCHEMY CODE
@@ -63,15 +64,15 @@ def check_db():
             try:
                 engine = sqlite3.connect(db_path, check_same_thread=False)
                 db_init = True
-                logging.debug("DB initializied!")
+                logger.debug("DB initializied!")
                 return True
             
-            except Exception as e:
-                logging.error("Error while conencting to SQLite DB! - Error: %s", e)
+            except sqlite3.Error as e:
+                logger.error("Error while conencting to SQLite DB! - Error: %s", e)
                 return False
         
         elif(db_driver == "mysql"):
-            logging.error("Currently MySQL is not supported :( - If you are able to use SQLAlchemy feel free to modify this file and create a PR <3)")
+            logger.error("Currently MySQL is not supported :( - If you are able to use SQLAlchemy feel free to modify this file and create a PR <3)")
             return False
         #    username = config.get("db", "db_user")
         #    password = config.get("db", "db_pass")
@@ -98,20 +99,13 @@ def check_db():
                 db_init = True
                 return True
             except sqlite3.Error as e:
-                logging.error("Error while creating in memory %s Database! - SQL Error: %s", db_driver, e)
+                logger.error("Error while creating in memory %s Database! - SQL Error: %s", db_driver, e)
                 return False
-            except Exception as e:
-                logger.error("Error while creating in memory SQLite DB! - Error: %s", e)
-                return False
-            
         else:
             logger.error("Currently only SQLite and MySQL is supported :) - Please choose one ^^")
             return False
     except sqlite3.Error as e:
-        logging.error("Error while initiating %s Database! - SQL Error: %s", db_driver, e)
-        return False
-    except Exception as e:
-        logging.error("Error while initiating %s Database! - Error: %s", db_driver, e)
+        logger.error("Error while initiating %s Database! - SQL Error: %s", db_driver, e)
         return False
 
 def check_table_exist(table_name:str):
@@ -125,7 +119,7 @@ def check_table_exist(table_name:str):
     #    else:
     #        return False
     #except Exception as e:
-    #    logging.error(f"Error while checking for table! - Error: {e}")
+    #    logger.error(f"Error while checking for table! - Error: {e}")
     #    exit()
 
     if not db_init:
@@ -144,16 +138,16 @@ def check_table_exist(table_name:str):
             return False
         else:
             return True
-    except Exception as e:
+    except sqlite3.Error as e:
         logger.error("Error while checking for table! - Error: %s",e)
         return False
 
-#This function can create a table bases on a defined JSON scheme
 def create_table(name:str, scheme:json):
+    """This function can create a table bases on a defined JSON scheme"""
     if not db_init:
         init = check_db()
         if not init:
-            logging.error("Error while initializing DB")
+            logger.error("Error while initializing DB")
             return False
     #Check if the table already exist. If so - SKIP
     if check_table_exist(name):
@@ -166,10 +160,7 @@ def create_table(name:str, scheme:json):
         try:
             data = json.loads(scheme)
         except json.JSONDecodeError as e:
-            logging.error("Error while reading JSON Scheme! - JSON Error: %s", e)
-            return False
-        except Exception as e:
-            logging.error("Error while reading JSON Scheme! - Error: %s", e)
+            logger.error("Error while reading JSON Scheme! - JSON Error: %s", e)
             return False
     else:
         data = scheme
@@ -178,17 +169,17 @@ def create_table(name:str, scheme:json):
     primary_key_defined = False
     #Iterate over all defined columns. Check for different optionas and add them to the query.
     for column_name in data:
-        logging.debug("Column_Name: %s, Type: %s", column_name, scheme[column_name])
+        logger.debug("Column_Name: %s, Type: %s", column_name, scheme[column_name])
         c_query = column_name
         try:
             options = scheme[column_name]
-        except Exception as e:
+        except IndexError as e:
             logger.error("Error while creating table! - Can't load options for coumn %s", column_name)
             return False
 
         #For each column create a cache query based on SQL -> <<Name>> <<type>> <<options>>
         if not "type" in options:
-            logging.error("Error while creating table! - Column %s does not include a valid \"type\" field!", column_name)
+            logger.error("Error while creating table! - Column %s does not include a valid \"type\" field!", column_name)
             return False
         c_query += " " + options["type"]
 
@@ -199,7 +190,7 @@ def create_table(name:str, scheme:json):
             c_query += " PRIMARY KEY"
             primary_key_defined = True
         elif "primary_key" in options and options["primary_key"] == True and primary_key_defined == True:
-            logging.warning("There are at least 2 primary keys defined! - Please check config. Ignore Primary Key %s", column_name)
+            logger.warning("There are at least 2 primary keys defined! - Please check config. Ignore Primary Key %s", column_name)
 
         if "auto_increment" in options and options["auto_increment"] == True:
             c_query += " AUTOINCREMENT"
@@ -213,7 +204,7 @@ def create_table(name:str, scheme:json):
         query += c_query + ", "
     query = query[:-2]
     query +=");"
-    logging.debug("Query successfully generated. Query: %s", query)
+    logger.debug("Query successfully generated. Query: %s", query)
 
     #OLD SQLALCHEMY CODE
     #try:
@@ -222,7 +213,7 @@ def create_table(name:str, scheme:json):
     #        conn.commit()
     #        return True
     #except Exception as e:
-    #    logging.error(f"Error while executing creation Statement! - Error: {e}")
+    #    logger.error(f"Error while executing creation Statement! - Error: {e}")
     #    return False
 
     try:
@@ -233,19 +224,19 @@ def create_table(name:str, scheme:json):
         table_exist = check_table_exist(name)
 
         if not table_exist:
-            logging.error("Error while creating table %s! - After creating table does not exist!", name)
+            logger.error("Error while creating table %s! - After creating table does not exist!", name)
             return False
         return True
-    except Exception as e:
-        logging.error("Error while creating table %s Error: %s", name, e)
+    except sqlite3.Error as e:
+        logger.error("Error while creating table %s Error: %s", name, e)
         return False
 
 #Fetch a value from a database based on a json filter {""}
-def fetch_value(table:str, row_name:str, value:str, filter:list = None, is_unique=False):
+def fetch_value(table:str, row_name:str, value:str, data_filter:list = None, is_unique=False):
     if not db_init:
         init = check_db()
         if not init:
-            logging.error("Error while initializing db!")
+            logger.error("Error while initializing db!")
             return False
         
     #Check if the table already exist. If so - SKIP
@@ -254,9 +245,9 @@ def fetch_value(table:str, row_name:str, value:str, filter:list = None, is_uniqu
         return False
     
     #create SELECT query
-    if filter != None:
+    if data_filter != None:
         query_filter = ""
-        for element in filter:
+        for element in data_filter:
             query_filter += element + ","
         query_filter = query_filter[:-1]
     else:
@@ -264,18 +255,18 @@ def fetch_value(table:str, row_name:str, value:str, filter:list = None, is_uniqu
     
     #OLD SQLALCHEMY CODE
     #query = F"SELECT {query_filter} from {table} WHERE {row_name} = \"{value}\""
-    #logging.debug(f"Prepared Query: {query}")
+    #logger.debug(f"Prepared Query: {query}")
 
     #try:
     #    with engine.connect() as conn:
-    #        logging.debug(f"Prepared query: {query}")
+    #        logger.debug(f"Prepared query: {query}")
     #        data = conn.execute(text(query))
     #        if not is_unique:
     #            return data.all()
     #        else:
     #            return data.first()
     #except Exception as e:
-    #    logging.error(f"Error while executing Insert Statement! - Error: {e}")
+    #    logger.error(f"Error while executing Insert Statement! - Error: {e}")
     #    return False
     cursor = engine.cursor()
     try:
@@ -286,46 +277,43 @@ def fetch_value(table:str, row_name:str, value:str, filter:list = None, is_uniqu
             return data.fetchall()
         return data.fetchone()
     except sqlite3.Error as e:
-        logging.error("Error while fetching value from table %s SQL Error: %s", table, e)
-        return False
-    except Exception as e:
-        logging.error("Error while fetching value from table %s Error: %s", table, e)
+        logger.error("Error while fetching value from table %s SQL Error: %s", table, e)
         return False
 
-def fetch_value_as_bool(table:str, row_name:str, value:str, filter:list = None, is_unique=False):
+def fetch_value_as_bool(table:str, row_name:str, value:str, data_filter:list = None, is_unique=False):
+    """ This function is used to fetch a value from a database.
+        The filter is a list containing all fields that need to be returned.
+        If "is_unique" = True, fetchfirst() instead of fetchall() is returned"""
     try:
-        value = fetch_value(table, row_name, value, filter, is_unique)
+        value = fetch_value(table, row_name, value, data_filter, is_unique)
         value = value[0]
 
         if isinstance(value, str):
             value = value.lower()
-            if value == "true" or value == "1":
+            if value in ("true", 1):
                 return True
-            else:
-                return False
         elif isinstance(value, int):
             if value == 1:
                 return True
-            else:
-                return False
         else:
             logger.error("Error while converting fetched \"%s\" value to bool! - Unsupported type %s", value, type(value))
-            return False
-    except sqlite3.Error as e:
-        logging.error("Error while fetching data from DB! - Error %s", e) 
         return False
-    except Exception as e:
-        logging.error(f"Error while converting fetched value to bool! - Check log... - Error: {e}")
+    except sqlite3.Error as e:
+        logger.error("Error while fetching data from DB! - Error %s", e) 
         return False
 
 def insert_value(table:str, data:json):
+    """Insert a value into a given table.
+        Data are passed as JSON with the following format:
+        {"column_name": value:str|dict|list}"""
+    
     if not db_init:
         init = check_db()
         if not init:
-            logging.error("Error while initializing db!")
+            logger.error("Error while initializing db!")
             return False
     if not check_table_exist(table):
-        logger.error("Table does not exist!", table)
+        logger.error("Table %s does not exist!", table)
         return False
     keys = []
     for data_keys in data:
@@ -344,7 +332,7 @@ def insert_value(table:str, data:json):
     #            try:
     #                json_data = json.dumps(data[value])
     #            except Exception as e:
-    #                logging.error(f"Error while dumping json content! - Error: {e}")
+    #                logger.error(f"Error while dumping json content! - Error: {e}")
     #                exit()
     #            values += json_data+ ","
     #        elif type(data[value]) == int:
@@ -352,36 +340,34 @@ def insert_value(table:str, data:json):
     #        elif type(data(value)) == bool:
     #            values += data[value] +","
     #        else:
-    #            logging.warning(f"Unsuported type {type(data[value])} for value {value}!")
+    #            logger.warning(f"Unsuported type {type(data[value])} for value {value}!")
     #            continue
     #    except Exception as e:
-    #        logging.error("Error while converting ")
+    #        logger.error("Error while converting ")
     #values = values[:-1]
 
     values = []
     for value in data:
         try:
-            if isinstance(data[value], dict) or isinstance(data[value], list):
+            if isinstance(data[value], (dict, list)):
                 dict_data = json.dumps(data[value])
                 values.append(dict_data)
             else:
                 values.append(data[value])
         except json.JSONDecodeError as e:
-            logging.error(f"Error while decoding json! - Error: {e}")
-        except Exception as e:
-            logging.error(f"Error while converting - Error: {e}")
+            logger.error("Error while decoding json! - Error: %s", e)
 
 
     #OLD SQL ALCHEMY CODE
     #query = f"Insert into {table} ({keys}) VALUES ({values});"
-    #logging.debug(f"Prepared Query: {query}")
+    #logger.debug(f"Prepared Query: {query}")
     #try:
     #    with engine.connect() as conn:
     #        conn.execute(text(query))
     #        conn.commit()
     #        return True
     #except Exception as e:
-    #    logging.error(f"Error while executing Insert Statement! - Error: {e}")
+    #    logger.error(f"Error while executing Insert Statement! - Error: {e}")
     #    return False
 
     try:
@@ -398,11 +384,6 @@ def insert_value(table:str, data:json):
         #Maybe a check if all data are inserted will be added in the future by adding a select statement (call fetch function)
         return True
     except sqlite3.Error as e:
-        logging.error("Error while inserting value in table %s SQL Error: %s", table, e)
-        logging.error("Statemet: Insert into  %s (%s) VALUES (?), %s", table, keys, values)
+        logger.error("Error while inserting value in table %s SQL Error: %s", table, e)
+        logger.error("Statemet: Insert into  %s (%s) VALUES (?), %s", table, keys, values)
         return False
-    except Exception as e:
-        logging.error("Error while inserting value in table %s Error: %s", table, e)
-        logging.error("Statemet: Insert into  %s (%s) VALUES (?), %s", table, keys, values)
-        return False
-
