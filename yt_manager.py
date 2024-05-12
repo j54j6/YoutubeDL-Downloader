@@ -40,21 +40,21 @@ logger = logging.getLogger(__name__)
 logger.info("Running startup checks...")
 
 #Check for config File
-ConfigLoaded = check_for_config()
-if not ConfigLoaded:
+CONFIG_LOADED = check_for_config()
+if not CONFIG_LOADED:
     logger.error("Error while loading config! - Check log...")
     sys.exit()
 
 #Check for database and init
-DatabaseCheckSuccessful = check_db()
-if not DatabaseCheckSuccessful:
+DATABASE_CHECK_SUCCESSFULL = check_db()
+if not DATABASE_CHECK_SUCCESSFULL:
     logging.error("Error while initializing DB! - Please check log...")
     sys.exit()
 
 #Check database content
-Dependencies = scheme_setup()
+DEPENDENCIES = scheme_setup()
 
-if not Dependencies:
+if not DEPENDENCIES:
     logging.error("Error while prepare dependencies... Check log.")
     sys.exit()
 
