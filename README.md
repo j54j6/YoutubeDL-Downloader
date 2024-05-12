@@ -25,6 +25,10 @@ Supported values:
         If you want to create a table inside the main database you can utilize the "db" key. If defined the program will create a table with the given columns and if you want also default rows. 
         For reference please check the project.json file as a reference :)
 
+# Working
+- Downloading videos (Custom) => Single link
+- Register Video in db including tags and important information (also metadata for later use...)
+
 
 # TODO
 - implementing db functions

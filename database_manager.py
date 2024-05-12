@@ -374,7 +374,7 @@ def insert_value(table:str, data:json):
         value_placeholder = ""
         for i in range(len_data):
             value_placeholder += "?,"
-        value_placeholder =  value_placeholder[:-1]
+        value_placeholder = value_placeholder[:-1]
         query = f"Insert into  {table} ({keys}) VALUES ({value_placeholder})"
         cursor.execute(query, values)
         engine.commit()
