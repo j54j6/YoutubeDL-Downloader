@@ -366,19 +366,19 @@ def validate_scheme(url, scheme, silent=False):
         logging.error("Provided Scheme is not valid! - Check log")
         return False
 
-    parsed_url = tldextract.extract(url)
+    parsedUurl = tldextract.extract(url)
     #Check if the provided url matches the filter of the given scheme
-    if not parsed_url.suffix in scheme["url_scheme"]["tld"]:
+    if not parsedUurl.suffix in scheme["url_scheme"]["tld"]:
         if not silent:
-            logging.error(f"Provided url does not match the requirements for the {parsed_url.domain} scheme! - TLD '{parsed_url.suffix}' is not supported! - scheme name: {scheme["schema_name"]}")
+            logging.error(f"Provided url does not match the requirements for the {parsedUurl.domain} scheme! - TLD '{parsedUurl.suffix}' is not supported! - scheme name: {scheme["schema_name"]}")
         return False
-    if not parsed_url.domain in scheme["url_scheme"]["sld"]:
+    if not parsedUurl.domain in scheme["url_scheme"]["sld"]:
         if not silent:
-            logging.error(f"Provided url does not match the requirements for the {parsed_url.domain} scheme! - SLD '{parsed_url.domain}' is not supported! - scheme name: {scheme["schema_name"]}")
+            logging.error(f"Provided url does not match the requirements for the {parsedUurl.domain} scheme! - SLD '{parsedUurl.domain}' is not supported! - scheme name: {scheme["schema_name"]}")
         return False
-    if not parsed_url.subdomain in scheme["url_scheme"]["subd"]:
+    if not parsedUurl.subdomain in scheme["url_scheme"]["subd"]:
         if not silent:
-            logging.error(f"Provided url does not match the requirements for the {parsed_url.domain} scheme! - Subdomain '{parsed_url.subdomain}' is not supported! - scheme name: {scheme["schema_name"]}")
+            logging.error(f"Provided url does not match the requirements for the {parsedUurl.domain} scheme! - Subdomain '{parsedUurl.subdomain}' is not supported! - scheme name: {scheme["schema_name"]}")
         return False
     return True
 
