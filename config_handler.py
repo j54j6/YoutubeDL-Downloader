@@ -25,12 +25,10 @@ loaded:bool = False
 #default config_name
 default_config_name:str = "config.ini"
 
-"""
-#This function is used to define a default config.
-"""
 def create_default_config(
         path=Path.joinpath(pathlib.Path(__file__).parent.resolve(), "config.ini")
     ):
+    """#This function is used to define a default config."""
     #Add Default configuration for values needed for the whole project
     config.add_section('main')
 
@@ -49,14 +47,12 @@ def create_default_config(
     except FileNotFoundError as e:
         logger.error("Error while creating default config! - Error: %s", e)
         return False
-"""
-#This function checks if a given path is a valid .ini file
-"""
+
 def check_for_config(path=False):
+    """ #This function checks if a given path is a valid .ini file """
     #As fallback (per Default) the config is located in the same folder as the main.py.
     #Set the default search path to the current file dir.
-    check_path:Path = pathlib.Path(__file__).parent.resolve()
-    check_path = Path.joinpath(check_path, default_config_name)
+    check_path = Path.joinpath(pathlib.Path(__file__).parent.resolve(), default_config_name)
 
     #Check if a path is provided (Path != False).
     #If so change the check_path to the given path and not to the current dir
