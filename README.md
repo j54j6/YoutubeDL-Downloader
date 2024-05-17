@@ -30,7 +30,7 @@ Supported values:
 # Currently Working
 - Downloading videos (Custom) => Single link
 - Register Video in db including tags and important information (also metadata for later use...)
-
+- currently supported websites: Pinterest, Reddit, Pornhub, YouTube
 
 # TODO
 - implementing db functions
@@ -43,7 +43,7 @@ Supported values:
 # Postponed todos
 - Implementing support for both SQLite and MySQL
 - Removing Problems with SQL Injection -> Currently I don't know how to dynamically pass non literals (like tablenames or selectors) since they are not supported for binding in python.
-- currently supported websites: Pinterest, Reddit, Pornhub, YouTube
+
 
 # Thanks
 - This program uses different libaries to work. One of them is [!yt-dlp(https://github.com/yt-dlp/yt-dlp)] - This libary is used to download all the data needed. Big Thanks <3
