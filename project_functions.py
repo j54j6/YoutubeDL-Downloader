@@ -90,7 +90,8 @@ def scheme_setup():
                                         Insert into table""",
                                         scheme)
                             for option in scheme_data["db"]["rows"]:
-                                #Iterate over all default options and insert them to the config table
+                                #Iterate over all default options and insert them to the config
+                                #table
                                 row_inserted = insert_value(scheme_data["db"]["table_name"], option)
                                 if not row_inserted:
                                     logger.error("Error while inserting row: %s!", option)
@@ -165,8 +166,8 @@ def show_help():
     #Line Break for Pylint #C0301
     help_table.add_row(['custom',
                         '<<url>>',
-                        '''In case you want to download a video from a channel without a subscription
-                        you can do it here...
+                        '''In case you want to download a video from a channel without
+                        a subscription you can do it here...
                         The file will saved in the default scheme based folder under /custom'''])
     #Line Break for Pylint #C0301
     help_table.add_row(['start',
@@ -198,7 +199,7 @@ def alive_check(url: str):
         return False
 
 def validate_url_scheme(scheme:json):
-    """ This function is used to validate loaded url schemes. 
+    """ This function is used to validate loaded url schemes.
     It ensures that a defined set of keys are availiable """
     #Check basic keys needed for general function
     needed_keys = ["schema_name", "url_template", "url_scheme", "categories", "storage"]
@@ -251,7 +252,9 @@ def fetch_category_name(url:str, scheme:json):
     logging.debug("Fetch category for url %s", url)
     if "category_path" in scheme["categories"]:
         category_path = scheme["categories"]["category_path"]
-
+    else:
+        #This should not be used!
+        category_path = 1
     #if category path = "" -> First path descriptor is used (e.g. sld.tld/<<username>>) is used
     parsed_url = urlparse.urlparse(url)
     category = parsed_url.path.split('/')[category_path]
@@ -285,7 +288,7 @@ def fetch_scheme_file_by_file(url):
                 logging.error("Scheme %s is not a valid url scheme!", scheme_file)
                 continue
 
-            if(validate_scheme(url, scheme)):
+            if validate_scheme(url, scheme):
                 logging.info("Found suitable scheme file - Scheme used: %s", scheme_file)
                 return_val["scheme_file"] = scheme_file
                 return_val["scheme_path"] = os.path.join(scheme_folder, scheme_file)
@@ -448,14 +451,13 @@ def decide_storage_path(url, scheme):
                 scheme["storage"]["category_storage"] is False):
                 return base_path
             return inner_decide_path(base_path)
-        else:
-            #Line Break for Pylint #C0301
-            if("category_storage" in scheme["storage"] and
-               scheme["storage"]["category_storage"] is False):
-                path_ext = inner_decide_path(base_path)
-                if not path_ext:
-                    return base_path
-                return path_ext
+        #Line Break for Pylint #C0301
+        if("category_storage" in scheme["storage"] and
+           scheme["storage"]["category_storage"] is False):
+            path_ext = inner_decide_path(base_path)
+            if not path_ext:
+                return base_path
+            return path_ext
     return base_path
 
 def get_file_data(url, ydl_opts):
