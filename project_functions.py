@@ -499,7 +499,7 @@ def download_file(url, path):
             'restrict-filenames': True
         }
 
-        metadata = get_file_data(url, path, ydl_opts)
+        metadata = get_file_data(url, ydl_opts)
         if not metadata or not "title" in metadata or not "ext" in metadata:
             #Line Break for Pylint #C0301
             logger.error("""Error while fetching metadata from target server! - 
@@ -529,6 +529,11 @@ def download_file(url, path):
 def create_hash_from_file(file):
     """ Create a hash from a given file and returns a JSON Dict"""
     return_val = {"status": False, "file": None, "hash": None}
+    
+    if file is None:
+        logging.error("File is NONE!")
+        return False
+    logging.debug("Create hash from file %s", file)
     #create hash and return the hex value
     hash_obj = hashlib.sha256()
     try:
@@ -537,6 +542,7 @@ def create_hash_from_file(file):
             while len(fb) > 0: # While there is still data being read from the file
                 hash_obj.update(fb) # Update the hash
                 fb = f.read(BUF_SIZE) # Read the next block from the file
+        return_val["hash"] = hash_obj.hexdigest()     
         return_val["status"] = True
         return return_val
     except Exception as e:
@@ -600,7 +606,7 @@ def prepare_file_download(url):
 
     #Scheme is valid. Decicde where to save the file (Check for categories). Read general config 
     #and do the stuff...
-    dst_path = decide_storage_path(url, scheme)
+    dst_path = decide_storage_path(url, scheme["scheme"])
     if not dst_path:
         logging.error("Error while defining storage path! - Check log")
         return False
@@ -634,7 +640,7 @@ def save_file_to_db(scheme, scheme_path, full_file_path, file_hash, url, metadat
             logging.debug("Found key 'tags'")
             if len(metadata["tags"]) > 0:
                 logging.debug("Tags found...")
-                video_data["tags"] = data["tags"]
+                video_data["tags"] = metadata["tags"]
             else:
                 logging.debug("Tags array is empty!")
         else:
@@ -714,7 +720,8 @@ def direct_download(url:str):
 
     #Check if hash created successfully
     if not file_hash["status"] or file_hash["hash"] == None:
-        logger.error("Error while creating hash from file! - Please check log.")
+        logger.error("Error while creating hash from file! - Please check log. - Results: %s, %s", 
+                     file_hash["status"], file_hash["hash"])
         error_post_processing(full_file_path)
         return False
 
@@ -725,7 +732,12 @@ def direct_download(url:str):
     hash_exist = fetch_value("items", "file_hash", file_hash["hash"], None, True)
 
     if not hash_exist:
-        video_registered = save_file_to_db(scheme, scheme_path, full_file_path, file_hash["hash"])
+        video_registered = save_file_to_db(scheme["schema_name"], 
+                                           scheme_path, 
+                                           full_file_path, 
+                                           file_hash["hash"], 
+                                           url, 
+                                           metadata)
 
         if video_registered:
             logging.info("File successfully downlaoded.")
