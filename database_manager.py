@@ -175,7 +175,9 @@ def prepare_sql_create_statement(name, scheme):
         if "primary_key" in options and options["primary_key"] is True and not primary_key_defined:
             c_query += " PRIMARY KEY"
             primary_key_defined = True
-        elif "primary_key" in options and options["primary_key"] is True and primary_key_defined is True:
+        #PyLint C0301
+        elif ("primary_key" in options and options["primary_key"] is True and
+              primary_key_defined is True):
             logger.warning("""There are at least 2 primary keys defined! -
                            Please check config. Ignore Primary Key %s""", column_name)
 
@@ -238,7 +240,7 @@ def create_table(name:str, scheme:json):
 
         if not table_exist:
             #PyLint C0301
-            logger.error("""Error while creating table %s! - 
+            logger.error("""Error while creating table %s! -
                          After creating table does not exist!""", name)
             return False
         return True
@@ -296,7 +298,7 @@ def fetch_value(table:str, row_name:str, value:str, data_filter:list = None, is_
         return False
 
 #Pylint C0301
-def fetch_value_as_bool(table:str, row_name:str, value:str, 
+def fetch_value_as_bool(table:str, row_name:str, value:str,
                         data_filter:list = None, is_unique=False):
     """ This function is used to fetch a value from a database.
         The filter is a list containing all fields that need to be returned.
