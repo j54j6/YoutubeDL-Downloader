@@ -10,8 +10,8 @@ import logging
 import os
 import json
 
-#temporarily removed sql alchemy. 
-#It is not possible to use a dynamic database scheme (JSON Based) scheme. 
+#temporarily removed sql alchemy.
+#It is not possible to use a dynamic database scheme (JSON Based) scheme.
 #HELP NEEDED :)
 #Feel free to add it - so we can support both SQLite and MySQL
 #from sqlalchemy import create_engine, Column, Integer, String, engine, MetaData, StaticPool, text
@@ -73,7 +73,10 @@ def check_db():
                 return False
 
         elif db_driver == "mysql":
-            logger.error("Currently MySQL is not supported :( - If you are able to use SQLAlchemy feel free to modify this file and create a PR <3)")
+            #Linebreak because of Pylint C0301
+            logger.error("""Currently MySQL is not supported :( -
+                         If you are able to use SQLAlchemy
+                         feel free to modify this file and create a PR <3)""")
             return False
         #    username = config.get("db", "db_user")
         #    password = config.get("db", "db_pass")
@@ -101,7 +104,7 @@ def check_db():
                 return True
             except sqlite3.Error as e:
                 #Line Break because of PyLint best Practice (C0301)
-                logger.error("Error while creating in memory %s Database! - SQL Error: %s", 
+                logger.error("Error while creating in memory %s Database! - SQL Error: %s",
                              db_driver, e)
                 return False
         else:
@@ -146,7 +149,8 @@ def check_table_exist(table_name:str):
         return False
 
 def prepare_sql_create_statement(name, scheme):
-    """ This function is used to create tables based on a defined json scheme. Check documentation for help """
+    """ This function is used to create tables based on a defined json scheme.
+        Check documentation for help """
     query:str = f"CREATE TABLE {name} ("
     primary_key_defined = False
     #Iterate over all defined columns. Check for different optionas and add them to the query.
@@ -156,12 +160,16 @@ def prepare_sql_create_statement(name, scheme):
         try:
             options = scheme[column_name]
         except IndexError as e:
-            logger.error("Error while creating table! - Can't load options for coumn %s - Error: %s", column_name, e)
+            #PyLint C0301
+            logger.error("""Error while creating table! -
+                         Can't load options for coumn %s - Error: %s""", column_name, e)
             return False
 
         #For each column create a cache query based on SQL -> <<Name>> <<type>> <<options>>
         if not "type" in options:
-            logger.error("Error while creating table! - Column %s does not include a valid \"type\" field!", column_name)
+            #PyLint C0301
+            logger.error("""Error while creating table! -
+                         Column %s does not include a valid \"type\" field!""", column_name)
             return False
         c_query += " " + options["type"]
 
@@ -172,7 +180,8 @@ def prepare_sql_create_statement(name, scheme):
             c_query += " PRIMARY KEY"
             primary_key_defined = True
         elif "primary_key" in options and options["primary_key"] is True and primary_key_defined is True:
-            logger.warning("There are at least 2 primary keys defined! - Please check config. Ignore Primary Key %s", column_name)
+            logger.warning("""There are at least 2 primary keys defined! -
+                           Please check config. Ignore Primary Key %s""", column_name)
 
         if "auto_increment" in options and options["auto_increment"] is True:
             c_query += " AUTOINCREMENT"
@@ -304,7 +313,8 @@ def fetch_value_as_bool(table:str, row_name:str, value:str, data_filter:list = N
             if value == 1:
                 return True
         else:
-            logger.error("Error while converting fetched \"%s\" value to bool! - Unsupported type %s", value, type(value))
+            logger.error("""Error while converting fetched \"%s\" value to bool! -
+                         Unsupported type %s""", value, type(value))
         return False
     except sqlite3.Error as e:
         logger.error("Error while fetching data from DB! - Error %s", e)
@@ -389,7 +399,8 @@ def insert_value(table:str, data:json):
         cursor.execute(query, values)
         ENGINE.commit()
 
-        #Maybe a check if all data are inserted will be added in the future by adding a select statement (call fetch function)
+        #Maybe a check if all data are inserted will be added in the future 
+        #by adding a select statement (call fetch function)
         return True
     except sqlite3.Error as e:
         logger.error("Error while inserting value in table %s SQL Error: %s", table, e)
