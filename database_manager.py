@@ -24,10 +24,8 @@ from config_handler import config
 
 #DB Stuff
 #Variabvle to check if the db is already initialized
-global db_init
 db_init:bool = False
 #ENGINE Object
-global ENGINE
 ENGINE = None
 
 # init logger
@@ -106,13 +104,11 @@ def check_db():
                 #Line Break because of PyLint best Practice (C0301)
                 logger.error("Error while creating in memory %s Database! - SQL Error: %s",
                              db_driver, e)
-                return False
         else:
             logger.error("Currently only SQLite and MySQL is supported :) - Please choose one ^^")
-            return False
     except sqlite3.Error as e:
         logger.error("Error while initiating %s Database! - SQL Error: %s", db_driver, e)
-        return False
+    return False
 
 def check_table_exist(table_name:str):
     """ This function checks if the passed table name exists in the database"""
@@ -241,7 +237,9 @@ def create_table(name:str, scheme:json):
         table_exist = check_table_exist(name)
 
         if not table_exist:
-            logger.error("Error while creating table %s! - After creating table does not exist!", name)
+            #PyLint C0301
+            logger.error("""Error while creating table %s! - 
+                         After creating table does not exist!""", name)
             return False
         return True
     except sqlite3.Error as e:
@@ -297,7 +295,9 @@ def fetch_value(table:str, row_name:str, value:str, data_filter:list = None, is_
         logger.error("Error while fetching value from table %s SQL Error: %s", table, e)
         return False
 
-def fetch_value_as_bool(table:str, row_name:str, value:str, data_filter:list = None, is_unique=False):
+#Pylint C0301
+def fetch_value_as_bool(table:str, row_name:str, value:str, 
+                        data_filter:list = None, is_unique=False):
     """ This function is used to fetch a value from a database.
         The filter is a list containing all fields that need to be returned.
         If "is_unique" = True, fetchfirst() instead of fetchall() is returned"""
@@ -399,7 +399,7 @@ def insert_value(table:str, data:json):
         cursor.execute(query, values)
         ENGINE.commit()
 
-        #Maybe a check if all data are inserted will be added in the future 
+        #Maybe a check if all data are inserted will be added in the future
         #by adding a select statement (call fetch function)
         return True
     except sqlite3.Error as e:

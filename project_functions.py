@@ -2,13 +2,16 @@
 """
 #
 # Project by j54j6
-# This program is used to make a private copy of youtube videos and potentially other websites supported by youtubedl
+# This program is used to make a private copy of youtube videos and potentially other websites 
+# supported by youtubedl
 # Furthermore it supports automatic periodic checking of channels and auto downloading.
-# It also checks if the downlaoded video already exists in the specified storage space and checks integrity of videos and redownload them if needed
+# It also checks if the downlaoded video already exists in the specified storage space and 
+# checks integrity of videos and redownload them if needed
 #
 
 #
-# This file contains the "Project specific funtions" this means that all functions I cannot reuse in other projects
+# This file contains the "Project specific funtions" this means that all functions I cannot 
+# reuse in other projects
 # like controls or checks are located inside this file.
 #
 """
@@ -29,7 +32,8 @@ from prettytable import PrettyTable
 from yt_dlp import YoutubeDL
 
 #own modules
-from database_manager import check_table_exist, create_table, insert_value, fetch_value, fetch_value_as_bool
+from database_manager import (check_table_exist, create_table, 
+                insert_value, fetch_value, fetch_value_as_bool)
 
 # init logger
 logger = logging.getLogger(__name__)
@@ -59,22 +63,31 @@ def scheme_setup():
                 if scheme_data["db"]["table_needed"] == True:
                     #Check if table exists - if not create it
                     if not "table_name" in scheme_data["db"]:
-                        logging.error("Error while checking for table in schema %s. Key table_name is missing!", scheme)
+                        #Line Break for Pylint #C0301
+                        logging.error("""Error while checking for table in schema %s. 
+                                      Key table_name is missing!""", scheme)
                         error_occured = True
                         continue
                     table_exists = check_table_exist(scheme_data["db"]["table_name"])
 
                     if not table_exists:
-                        result = create_table(scheme_data["db"]["table_name"], scheme_data["db"]["columns"])
+                        result = create_table(scheme_data["db"]["table_name"], 
+                                              scheme_data["db"]["columns"])
 
                         if not result:
-                            logging.error("Error while creating table %s for scheme %s! - Check log", scheme_data["db"]["table_name"], scheme)
+                            #Line Break for Pylint #C0301
+                            logging.error("""Error while creating table %s for scheme %s! - 
+                                          Check log""", scheme_data["db"]["table_name"], scheme)
                             error_occured = True
                             continue
-                        logging.info("Table %s for scheme %s successfully created!", scheme_data["db"]["table_name"], scheme)
+                        #Line Break for Pylint #C0301
+                        logging.info("""Table %s for scheme %s successfully created!""", 
+                                     scheme_data["db"]["table_name"], scheme)
                         #If table is created check if there are any default values and add these
                         if "rows" in scheme_data["db"]:
-                            logger.info("Found default values for scheme %s - Insert into table", scheme)
+                            logger.info("""Found default values for scheme %s - 
+                                        Insert into table""",
+                                        scheme)
                             for option in scheme_data["db"]["rows"]:
                                 #Iterate over all default options and insert them to the config table
                                 row_inserted = insert_value(scheme_data["db"]["table_name"], option)
@@ -101,123 +114,72 @@ def scheme_setup():
         return True
     return False
 
-def check_dependencies():
-    #Check if needed tables existing ("config", "items", "subscriptions")
-    logger.info("Check if all tables exist..")
-    if not check_table_exist("config"):
-        #Create config table from scheme
-        logger.info("Config table does not exist - Create Table...")
-        try:
-            with open("./scheme/project.json") as config_scheme:
-                config_data = config_scheme.read()
-        except FileNotFoundError:
-            logger.error("Error while reading Config Scheme! - Error: %s", e)
-            exit()
-        except Exception as e:
-            logger.error("Error while reading Config Scheme! - Error: %s", e)
-            exit()
-
-        try:
-            config_data_as_json = json.loads(config_data)
-            logging.debug("Config Data loaded - create table..")
-        except json.JSONDecodeError as e:
-            logger.error("Error while parsing JSON from config Scheme! - Error: %s", e)
-            exit()
-        except Exception as e:
-            logger.error("Error while parsing JSON from config Scheme! - Error: %s", e)
-            exit()
-
-        result = create_table(config_data_as_json["db"]["table_name"], config_data_as_json["db"]["columns"])
-        if not result:
-            logging.error("Error while creating table! - Check log")
-            exit()
-
-        #Check for default settings
-        if "rows" in config_data_as_json["db"]:
-            for option in config_data_as_json["db"]["rows"]:
-                #Iterate over all default options and insert them to the config table
-                inserted = insert_value()
-    if not check_table_exist("items"):
-        #Create items table from scheme
-        #Create config table from scheme
-        logger.info("Items table does not exist - Create Table...")
-        try:
-            with open("./scheme/saved_items.json") as table_scheme:
-                column_data = table_scheme.read()
-        except FileNotFoundError as e:
-            logger.error("Error while reading items table Scheme! - FILE Error: %s", e)
-            exit()
-        except Exception as e:
-            logger.error("Error while reading items table Scheme! - Error: %s", e)
-            exit()
-
-        try:
-            column_data_as_json = json.loads(column_data)
-            logging.debug("Config Data loaded - create table..")
-        except json.JSONDecodeError as e:
-            logger.error("Error while parsing JSON from config Scheme! - JSON Error: %s", e)
-            exit()
-        except Exception as e:
-            logger.error("Error while parsing JSON from config Scheme! - Error: %s", e)
-            exit()
-
-        result = create_table(column_data_as_json["db"]["table_name"], column_data_as_json["db"]["columns"])
-
-        if not result:
-            logging.error("Error while creating table! - Check log")
-            exit()
-    if not check_table_exist("subscriptions"):
-        #Create subscriptions table
-        #Create items table from scheme
-        #Create config table from scheme
-        logger.info("Items table does not exist - Create Table...")
-        try:
-            with open("./scheme/subscriptions.json") as table_scheme:
-                column_data = table_scheme.read()
-        except Exception as e:
-            logger.error(f"Error while reading subscription table Scheme! - Error: {e}")
-            exit()
-
-        try:
-            column_data_as_json = json.loads(column_data)
-            logging.debug("Config Data loaded - create table..")
-        except Exception as e:
-            logger.error(f"Error while parsing JSON from subscription Scheme! - Error: {e}")
-            exit()
-
-        result = create_table(column_data_as_json["db"]["table_name"], column_data_as_json["db"]["columns"])
-        if not result:
-            logging.error("Error while creating table! - Check log")
-            exit()
-
-    return True
-
 def show_help():
     print("------------------------------ Help ------------------------------")
-    print("You asked for help... Here it is :) - Run YT-Manager with the following commands and you're good to go")
+    #Line Break for Pylint #C0301
+    print("""You asked for help... Here it is :) - 
+          Run YT-Manager with the following commands and you're good to go""")
     help_table = PrettyTable(['Command', 'argument', 'description'])
     help_table.align['Command'] = "l"
     help_table.align['argument'] = "l"
     help_table.align['description'] = "l"
     help_table.add_row(['--Subscriptions--', '', ''])
     help_table.add_row(['add-subscription', '<<url>>', 'Add a new subscription'])
-    help_table.add_row(['del-subscription', '<<number>> | <<Name>>, <<delete_content>>', 'Delete a subscription. You can either provide the ID of your subscription (use list-subscriptions)'])
-    help_table.add_row(['', '', 'or the name of the subscription (Name of a channel). The second parameter defines if all content of this channel also should be removed (Default: False = NO)"'])
-    help_table.add_row(['list-subscriptions', '<<filter>>', 'List all subscriptions - You can provide a Filter (Array) of schemes you want to include'])
+    #Line Break for Pylint #C0301
+    help_table.add_row(['del-subscription', 
+                        '<<number>> | <<Name>>, <<delete_content>>', 
+                        '''Delete a subscription. You can either provide the ID 
+                        of your subscription (use list-subscriptions)'''])
+    #Line Break for Pylint #C0301
+    help_table.add_row(['', '', 
+                        '''or the name of the subscription (Name of a channel). 
+                        The second parameter defines if all content of this channel also 
+                        should be removed (Default: False = NO)'''])
+    #Line Break for Pylint #C0301
+    help_table.add_row(['list-subscriptions', 
+                        '<<filter>>', 
+                        '''List all subscriptions - You can provide a Filter (Array) of schemes 
+                        you want to include'''])
     help_table.add_row(['', '', ''])
     help_table.add_row(['--Other--', '', ''])
-    help_table.add_row(['validate', '', 'After any downloaded file a hash is generated and stored. For both checking for any duplicate files (independent of the name) and checking integrity of files (and maybe redownload them).'])
-    help_table.add_row(['', '', 'If you use this command all files will be revalidated and a report will be generated if there are any mismatches. '])
-    help_table.add_row(['', '', 'But be aware - This operation can take very long and consumes much power... Use it with care or overnight :) -  At the end you will see a report and you can decide if mismatched files should be redonwloaded'])
+    #Line Break for Pylint #C0301
+    help_table.add_row(['validate', 
+                        '', 
+                        '''After any downloaded file a hash is generated and stored. 
+                        For both checking for any duplicate files (independent of the name) and 
+                        checking integrity of files (and maybe redownload them).'''])
+    #Line Break for Pylint #C0301
+    help_table.add_row(['', 
+                        '', 
+                        '''If you use this command all files will be revalidated and 
+                        a report will be generated if there are any mismatches. '''])
+    #Line Break for Pylint #C0301
+    help_table.add_row(['', 
+                        '', 
+                        '''But be aware - 
+                        This operation can take very long and consumes much power... 
+                        Use it with care or overnight :) -  
+                        At the end you will see a report and you can decide if mismatched files 
+                        should be redonwloaded'''])
     help_table.add_row(['', '', ''])
     help_table.add_row(['--Operation--', '', ''])
-    help_table.add_row(['custom', '<<url>>', 'In case you want to download a video from a channel without a subscription you can do it here... The file will saved in the default scheme based folder under /custom'])
-    help_table.add_row(['start', '', 'Run the script -> Check all subscriptions for new content and download it'])
+    #Line Break for Pylint #C0301
+    help_table.add_row(['custom', 
+                        '<<url>>', 
+                        '''In case you want to download a video from a channel without a subscription 
+                        you can do it here... 
+                        The file will saved in the default scheme based folder under /custom'''])
+    #Line Break for Pylint #C0301
+    help_table.add_row(['start', 
+                        '', 
+                        '''Run the script -> Check all subscriptions for 
+                        new content and download it'''])
     print(help_table)
     print("Example: yt-manager.py add-subscription youtube-url")
     print("------------------------------------------------------------------")
 
-#This function is used to check if the provided url works (HTTP 200 - OK) if not the video can not be downloaded
+#This function is used to check if the provided url works (HTTP 200 - OK) 
+#if not the video can not be downloaded
 def alive_check(url: str):
     #Check if url is reachable
     try:
@@ -225,13 +187,20 @@ def alive_check(url: str):
         if requested_url.status_code == 200:
             return True
         else:
-            logging.warning("The requested url %s can not be reached. Excepted result is HTTP 200 but got HTTP %s", url, requested_url.status_code)
+            #Line Break for Pylint #C0301
+            logging.warning("""The requested url %s can not be reached. 
+                            Excepted result is HTTP 200 but got HTTP %s""", 
+                            url, requested_url.status_code)
             return False
     except requests.ConnectionError as e:
-        logger.error("Error while checking if url is alive! - Maybe you passed an invalid url? - Error: %s", e)
+        #Line Break for Pylint #C0301
+        logger.error("""Error while checking if url is alive! - 
+                     Maybe you passed an invalid url? - Error: %s""", e)
         return False
     except Exception as e:
-        logger.error("Error while checking if url is alive! - Maybe you passed an invalid url? - Error: %s", e)
+        #Line Break for Pylint #C0301
+        logger.error("""Error while checking if url is alive! - 
+                     Maybe you passed an invalid url? - Error: %s""", e)
         return False
 
 #This function is used to validate loaded url schemes. It ensures that a defined set of instructions are availiable
@@ -245,7 +214,9 @@ def validate_url_scheme(scheme:json):
             all_keys_exist = False
 
     if not all_keys_exist:
-        logging.error("Some required keys are missing in the given scheme file! - Please check your scheme. - Required keys: %s", needed_keys)
+        #Line Break for Pylint #C0301
+        logging.error("""Some required keys are missing in the given scheme file! - 
+                      Please check your scheme. - Required keys: %s""", needed_keys)
         return False
 
     #Check keys needed for url validation
@@ -256,7 +227,9 @@ def validate_url_scheme(scheme:json):
             all_keys_exist = False
 
     if not all_keys_exist:
-        logging.error("Some required url_scheme keys are missing in the given scheme file! - Please check your scheme.")
+        #Line Break for Pylint #C0301
+        logging.error("""Some required url_scheme keys are missing in the given scheme file! - 
+                      Please check your scheme.""")
         return False
 
     #Check minimum keys for categorizing
@@ -267,7 +240,9 @@ def validate_url_scheme(scheme:json):
             all_keys_exist = False
 
     if not all_keys_exist:
-        logging.error("required category key 'available' is missing in the given scheme file! - Please check your scheme.")
+        #Line Break for Pylint #C0301
+        logging.error("""required category key 'available' is missing in the given scheme file! - 
+                      Please check your scheme.""")
         return False
 
     if scheme["categories"]["available"] == True:
@@ -307,7 +282,8 @@ def fetch_scheme_file_by_file(url):
             logging.error("Error while reading scheme file %s", scheme_file)
             continue
 
-        #Check if the scheme file is a url template (used for websites) or a system template (for local use)
+        #Check if the scheme file is a url template (used for websites) or 
+        #a system template (for local use)
         if "url_template" in scheme and scheme["url_template"] == True:
             if not validate_url_scheme(scheme):
                 logging.error("Scheme %s is not a valid url scheme!", scheme_file)
@@ -361,7 +337,10 @@ def load_json_file(path:str):
 def validate_scheme(url, scheme, silent=False):
     #Check if the loaded template is a url template
     if not "url_template" in scheme or scheme["url_template"] == False:
-        logging.error("The laoded scheme is not marked as a url_template! - Please mark it as url template (Add key 'url_template' with value 'true' to json file)")
+        #Line Break for Pylint #C0301
+        logging.error("""The laoded scheme is not marked as a url_template! - 
+                      Please mark it as url template (Add key 'url_template' with value 'true' 
+                      to json file)""")
         return False
 
     #validate the url scheme for the most basic keys
@@ -373,21 +352,31 @@ def validate_scheme(url, scheme, silent=False):
     #Check if the provided url matches the filter of the given scheme
     if not parsedUrl.suffix in scheme["url_scheme"]["tld"]:
         if not silent:
-            logging.error("Provided url does not match the requirements for the %s scheme! - TLD '%s' is not supported! - scheme name: %s", parsedUrl.domain, parsedUrl.suffix, scheme["schema_name"])
+            #Line Break for Pylint #C0301
+            logging.error("""Provided url does not match the requirements for the %s scheme! - 
+                          TLD '%s' is not supported! - scheme name: %s""", 
+                          parsedUrl.domain, parsedUrl.suffix, scheme["schema_name"])
         return False
     if not parsedUrl.domain in scheme["url_scheme"]["sld"]:
         if not silent:
-            logging.error("Provided url does not match the requirements for the %s scheme! - SLD '%s' is not supported! - scheme name: %s", parsedUrl.domain, parsedUrl.domain, scheme["schema_name"])
+            #Line Break for Pylint #C0301
+            logging.error("""Provided url does not match the requirements for the %s scheme! - 
+                          SLD '%s' is not supported! - scheme name: %s""", 
+                          parsedUrl.domain, parsedUrl.domain, scheme["schema_name"])
         return False
     if not parsedUrl.subdomain in scheme["url_scheme"]["subd"]:
         if not silent:
-            logging.error("Provided url does not match the requirements for the %s scheme! - Subdomain '%s' is not supported! - scheme name: %s", parsedUrl.domain, parsedUrl.subdomain, scheme["schema_name"])
+            #Line Break for Pylint #C0301
+            logging.error("""Provided url does not match the requirements for the %s scheme! - 
+                          Subdomain '%s' is not supported! - scheme name: %s""", 
+                          parsedUrl.domain, parsedUrl.subdomain, scheme["schema_name"])
         return False
     return True
 
 def decide_storage_path(url, scheme):
-    #General configuration db table (config) provides a base location where all stuff from this script needs to be saved...
-    #First fetch this...
+    """General configuration db table (config) provides a base location where all stuff 
+    from this script needs to be saved..."""
+    #First fetch the base location...
     data = fetch_value("config", "option_name", "base_location", ["option_value"], True)
     if not data:
         logging.error("Error while fetching data from config db! - Please check log")
@@ -397,15 +386,20 @@ def decide_storage_path(url, scheme):
 
     if "storage" in scheme:
         if not "base_path" in scheme["storage"]:
-            logging.error("Error while fetching scheme base path! - \"base_path\" is not defined as key! - Ignore it and use base path from general config")
+            #Line Break for Pylint #C0301
+            logging.error("""Error while fetching scheme base path! - \"base_path\" is 
+                          not defined as key! - Ignore it and use base path from general config""")
         else:
             base_path = os.path.join(base_path, scheme["storage"]["base_path"])
             logging.debug("Base path of scheme is: %s", base_path)
     else:
-        logging.warning("Scheme does not provide it's own storage path! - Save data to the base directory")
+        #Line Break for Pylint #C0301
+        logging.warning("""Scheme does not provide it's own storage path! - 
+                        Save data to the base directory""")
 
-
-    if "categories" in scheme and "available" in scheme["categories"] and scheme["categories"]["available"] == True:
+    #Line Break for Pylint #C0301
+    if ("categories" in scheme and "available" in scheme["categories"] and 
+        scheme["categories"]["available"] == True):
         #Decide if categories are used
         #Check if categories are defined. If not categories can not be used
         categories_defined = False
@@ -419,14 +413,19 @@ def decide_storage_path(url, scheme):
             if not category_name in scheme["categories"]["categories"]:
                 logging.error("Category %s is not defined!", category_name)
                 return False
-
-            logging.debug("Provided category %s is known... Check for custom storage path", category_name)
+            #Line Break for Pylint #C0301
+            logging.debug("""Provided category %s is known... 
+                          Check for custom storage path""", category_name)
 
             if "storage_path" in scheme["categories"]["categories"][category_name]:
-                base_path = os.path.join(base_path, scheme["categories"]["categories"][category_name]["storage_path"])
+                #Line Break for Pylint #C0301
+                base_path = os.path.join(base_path, 
+                            scheme["categories"]["categories"][category_name]["storage_path"])
                 logging.debug("Custom category path is defined. Storage path is %s", base_path)
             else:
-                logging.info("Category %s don't have an individual storage path! - Use path %s", category_name, base_path)
+                #Line Break for Pylint #C0301
+                logging.info("""Category %s don't have an individual storage path! - 
+                             Use path %s""", category_name, base_path)
             return base_path
 
 
@@ -434,13 +433,19 @@ def decide_storage_path(url, scheme):
             #if url don't have category -> Fail
             logging.debug("Scheme requires category")
             if not categories_defined:
-                logging.error("Scheme requires categories but none are defined. Please define categories or set them as optional!")
-            if "category_storage" in scheme["storage"] and scheme["storage"]["category_storage"] == False:
+                #Line Break for Pylint #C0301
+                logging.error("""Scheme requires categories but none are defined. 
+                              Please define categories or set them as optional!""")
+            #Line Break for Pylint #C0301
+            if ("category_storage" in scheme["storage"] and 
+                scheme["storage"]["category_storage"] == False):
                 return base_path
             else:
                 return inner_decide_path(base_path)
         else:
-            if "category_storage" in scheme["storage"] and scheme["storage"]["category_storage"] == False:
+            #Line Break for Pylint #C0301
+            if("category_storage" in scheme["storage"] and 
+               scheme["storage"]["category_storage"] == False):
                 path_ext = inner_decide_path(base_path)
                 if not path_ext:
                     return base_path
@@ -453,10 +458,12 @@ def decide_storage_path(url, scheme):
         return base_path
 
 def get_file_data(url, ydl_opts):
-    """ This function is used to fetch all needed information about the requested file to save it later into db."""
+    """ This function is used to fetch all needed information about the requested file 
+    to save it later into db."""
     try:
         with YoutubeDL(ydl_opts) as ydl:
-            #We only need the metadata. So we don't need to download the whole file. We will do this later...
+            #We only need the metadata. So we don't need to download the whole file. 
+            #We will do this later...
             file_data = ydl.extract_info(url, download=False)
     except Exception as e:
         logging.error("Error while fetching File information from target server! - Error: %s", e)
@@ -469,12 +476,15 @@ def get_file_data(url, ydl_opts):
         else:
             return False
     except Exception as e:
-        logger.error("Error result seems to have no content! - \n\n Result: %s \n Error: %s", file_data, e)
+        #Line Break for Pylint #C0301
+        logger.error("Error result seems to have no content! - \n\n Result: %s \n Error: %s", 
+                     file_data, e)
         return False
 
 #This function downloads a file (url) and saves it to a defined path (path)
 def download_file(url, path):
-    """This function downloads the file specified in url and also provides the prepared file path from ydl"""
+    """This function downloads the file specified in url and also provides the prepared 
+        file path from ydl"""
     logging.info("Downloading file from server")
     return_val = {"status": False, "full_file_path": None, "metadata": None}
 
@@ -491,14 +501,19 @@ def download_file(url, path):
 
         metadata = get_file_data(url, path, ydl_opts)
         if not metadata or not "title" in metadata or not "ext" in metadata:
-            logger.error("Error while fetching metadata from target server! - Metadata could not be fetched or key \"title\" / \"ext\" is missing")
+            #Line Break for Pylint #C0301
+            logger.error("""Error while fetching metadata from target server! - 
+                         Metadata could not be fetched or key \"title\" / \"ext\" is missing""")
             return return_val
 
         with YoutubeDL(ydl_opts) as ydl:
             value = ydl.download([url])
 
         if value == 0:
-            full_file_path = YoutubeDL(ydl_opts).prepare_filename(metadata, outtmpl=path + '/%(title)s.%(ext)s')
+            #Line Break for Pylint #C0301
+            full_file_path = YoutubeDL(ydl_opts).prepare_filename(metadata, 
+                                                                  outtmpl=path + 
+                                                                  '/%(title)s.%(ext)s')
             full_file_path = os.path.abspath(full_file_path)
             return_val["status"] = True
             return_val["full_file_path"] = full_file_path
@@ -554,7 +569,9 @@ def load_scheme(url: str):
     return return_scheme
 
 def prepare_file_download(url):
-    """This function checks if the given url is alive and can be used to download a file using the defined templates
+    """This function checks if the given url is alive and can be used to download a file 
+        using the defined templates
+
         Possible return Values:
         0 => Failed
         1 => Success
@@ -581,7 +598,8 @@ def prepare_file_download(url):
     return_val["scheme_path"] = scheme["scheme_path"]
     return_val["scheme"] = scheme["scheme"]
 
-    #Scheme is valid. Decicde where to save the file (Check for categories). Read general config and do the stuff...
+    #Scheme is valid. Decicde where to save the file (Check for categories). Read general config 
+    #and do the stuff...
     dst_path = decide_storage_path(url, scheme)
     if not dst_path:
         logging.error("Error while defining storage path! - Check log")
@@ -592,12 +610,15 @@ def prepare_file_download(url):
     return return_val
 
 def save_file_to_db(scheme, scheme_path, full_file_path, file_hash, url, metadata):
-    """ This function is used to save a file into the items table. It is basically an SQL Insert wrapper"""
+    """ This function is used to save a file into the items table. It is basically 
+    an SQL Insert wrapper"""
     #Video hash not exist as saved item add it...
     logger.info("Add Video to DB")
     head, tail = os.path.split(full_file_path)
     logging.debug("Scheme Data: %s", scheme_path)
-    use_tags_ydl = fetch_value_as_bool("config", "option_name", "use_tags_from_ydl", ["option_value"], True)
+    #Line Break for Pylint #C0301
+    use_tags_ydl = fetch_value_as_bool("config", "option_name", "use_tags_from_ydl", 
+                                       ["option_value"], True)
     #Define base data
     video_data = {
         "scheme": scheme,
@@ -623,12 +644,17 @@ def save_file_to_db(scheme, scheme_path, full_file_path, file_hash, url, metadat
     video_registered = insert_value("items", video_data)
     if not video_registered:
         logger.error("Error while saving file to db!! - Please check log.")
-        remove_file = fetch_value_as_bool("config", "option_name", "remove_file_on_post_process_error", ["option_value"], True)
+        #Line Break for Pylint #C0301
+        remove_file = fetch_value_as_bool("config", "option_name", 
+                                          "remove_file_on_post_process_error", 
+                                          ["option_value"], True)
         if remove_file:
             logger.info("Remove file due to config setting.")
             os.remove(full_file_path)
             if os.path.exists(full_file_path):
-                logging.error("Error while removing video after post processing error! - Check permissions")
+                #Line Break for Pylint #C0301
+                logging.error("""Error while removing video after post processing error! - 
+                              Check permissions""")
             return False
         logger.warning("File will not be removed! - Be cautious, the file is not saved in the db!")
         return False
@@ -636,12 +662,16 @@ def save_file_to_db(scheme, scheme_path, full_file_path, file_hash, url, metadat
     return True
 
 def error_post_processing(full_file_path):
-    remove_file = fetch_value_as_bool("config", "option_name", "remove_file_on_post_process_error", ["option_value"], True)
+    #Line Break for Pylint #C0301
+    remove_file = fetch_value_as_bool("config", "option_name", 
+                                      "remove_file_on_post_process_error", ["option_value"], True)
     if remove_file:
         logger.info("Remove file due to config setting.")
         os.remove(full_file_path)
         if os.path.exists(full_file_path):
-            logging.error("Error while removing video after post processing error! - Check permissions")
+            #Line Break for Pylint #C0301
+            logging.error("""Error while removing video after post processing error! - 
+                          Check permissions""")
             return False
         logger.info("File removed")
         return False
@@ -651,7 +681,9 @@ def error_post_processing(full_file_path):
 #This function represents the "manual" video download approach
 def direct_download(url:str):
     global path
-    logger.info(f"Directly download content from {url} - Check prerequisites and prepare download data")
+    #Line Break for Pylint #C0301
+    logger.info("""Directly download content from %s - 
+                Check prerequisites and prepare download data""", url)
 
     prepared_data = prepare_file_download(url)
 
@@ -663,12 +695,12 @@ def direct_download(url:str):
     scheme = prepared_data["scheme"]
     scheme_path = prepared_data["scheme_path"]
 
-    logger.info(F"File will be saved under: {path}")
+    logger.info("File will be saved under: %s", path)
 
     downloaded = download_file(url, path)
 
     if not downloaded["status"]:
-        logger.error(f"Error while downloading file from {url} - Please check log!")
+        logger.error("Error while downloading file from %s - Please check log!", url)
         return False
 
 
@@ -688,7 +720,8 @@ def direct_download(url:str):
 
 
     #Check if hash is already in database
-    #If hash is not in db -> Video is new - If hash is in db video already exist. Check if the url is the same
+    #If hash is not in db -> Video is new - 
+    #If hash is in db video already exist. Check if the url is the same
     hash_exist = fetch_value("items", "file_hash", file_hash["hash"], None, True)
 
     if not hash_exist:
