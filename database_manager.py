@@ -142,36 +142,11 @@ def check_table_exist(table_name:str):
         logger.error("Error while checking for table! - Error: %s",e)
         return False
 
-def prepare_sql_create_statement(name, data, scheme):
-
-
-def create_table(name:str, scheme:json):
-    """This function can create a table bases on a defined JSON scheme"""
-    if not db_init:
-        init = check_db()
-        if not init:
-            logger.error("Error while initializing DB")
-            return False
-    #Check if the table already exist. If so - SKIP
-    if check_table_exist(name):
-        logger.warning("Table %s already exist! - SKIP", name)
-        return True
-
-    logger.info("Create table %s", name)
-    #Check if the scheme parameter is valid JSON
-    if not isinstance(scheme, dict):
-        try:
-            data = json.loads(scheme)
-        except json.JSONDecodeError as e:
-            logger.error("Error while reading JSON Scheme! - JSON Error: %s", e)
-            return False
-    else:
-        data = scheme
-
+def prepare_sql_create_statement(name, scheme):
     query:str = f"CREATE TABLE {name} ("
     primary_key_defined = False
     #Iterate over all defined columns. Check for different optionas and add them to the query.
-    for column_name in data:
+    for column_name in scheme:
         logger.debug("Column_Name: %s, Type: %s", column_name, scheme[column_name])
         c_query = column_name
         try:
@@ -207,6 +182,32 @@ def create_table(name:str, scheme:json):
         query += c_query + ", "
     query = query[:-2]
     query +=");"
+    return query
+
+def create_table(name:str, scheme:json):
+    """This function can create a table bases on a defined JSON scheme"""
+    if not db_init:
+        init = check_db()
+        if not init:
+            logger.error("Error while initializing DB")
+            return False
+    #Check if the table already exist. If so - SKIP
+    if check_table_exist(name):
+        logger.warning("Table %s already exist! - SKIP", name)
+        return True
+
+    logger.info("Create table %s", name)
+    #Check if the scheme parameter is valid JSON
+    if not isinstance(scheme, dict):
+        try:
+            data = json.loads(scheme)
+        except json.JSONDecodeError as e:
+            logger.error("Error while reading JSON Scheme! - JSON Error: %s", e)
+            return False
+    else:
+        data = scheme
+
+    query = prepare_sql_create_statement(name, data)
     logger.debug("Query successfully generated. Query: %s", query)
 
     #OLD SQLALCHEMY CODE
