@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 BUF_SIZE = 2147483648
 
 def scheme_setup():
+    """ Check all schemes if tables are needed in the db"""
     script_dir = pathlib.Path(__file__).parent.resolve()
 
     if not os.path.isdir(os.path.join(script_dir, "scheme")):
@@ -60,7 +61,7 @@ def scheme_setup():
             #check if there is a "db" key -> If not a table is not needed - SKIP
             if "db" in scheme_data and "table_needed" in scheme_data["db"]:
                 #Check if a table is needed
-                if scheme_data["db"]["table_needed"] == True:
+                if scheme_data["db"]["table_needed"] is True:
                     #Check if table exists - if not create it
                     if not "table_name" in scheme_data["db"]:
                         #Line Break for Pylint #C0301
@@ -104,17 +105,15 @@ def scheme_setup():
             else:
                 logging.debug("Scheme %s does not contain a db key - SKIP", scheme)
                 continue
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             logger.error("Error while initializing scheme %s! - JSON Error: %s", scheme, e)
-            return False
-        except Exception as e:
-            logger.error("Error while initializing scheme %s! - Error: %s", scheme, e)
             return False
     if not error_occured:
         return True
     return False
 
 def show_help():
+    """ Show help """
     print("------------------------------ Help ------------------------------")
     #Line Break for Pylint #C0301
     print("""You asked for help... Here it is :) -
@@ -178,33 +177,29 @@ def show_help():
     print("Example: yt-manager.py add-subscription youtube-url")
     print("------------------------------------------------------------------")
 
-#This function is used to check if the provided url works (HTTP 200 - OK)
-#if not the video can not be downloaded
+
 def alive_check(url: str):
+    """ #This function is used to check if the provided url works (HTTP 200 - OK)
+        #if not the video can not be downloaded """
     #Check if url is reachable
     try:
         requested_url = requests.get(url)
         if requested_url.status_code == 200:
             return True
-        else:
-            #Line Break for Pylint #C0301
-            logging.warning("""The requested url %s can not be reached.
-                            Excepted result is HTTP 200 but got HTTP %s""",
-                            url, requested_url.status_code)
-            return False
+        #Line Break for Pylint #C0301
+        logging.warning("""The requested url %s can not be reached.
+                        Excepted result is HTTP 200 but got HTTP %s""",
+                        url, requested_url.status_code)
+        return False
     except requests.ConnectionError as e:
         #Line Break for Pylint #C0301
         logger.error("""Error while checking if url is alive! -
                      Maybe you passed an invalid url? - Error: %s""", e)
         return False
-    except Exception as e:
-        #Line Break for Pylint #C0301
-        logger.error("""Error while checking if url is alive! -
-                     Maybe you passed an invalid url? - Error: %s""", e)
-        return False
 
-#This function is used to validate loaded url schemes. It ensures that a defined set of instructions are availiable
 def validate_url_scheme(scheme:json):
+    """ This function is used to validate loaded url schemes. 
+    It ensures that a defined set of keys are availiable """
     #Check basic keys needed for general function
     needed_keys = ["schema_name", "url_template", "url_scheme", "categories", "storage"]
 
@@ -245,21 +240,21 @@ def validate_url_scheme(scheme:json):
                       Please check your scheme.""")
         return False
 
-    if scheme["categories"]["available"] == True:
+    if scheme["categories"]["available"] is True:
         if not "needed" in scheme["categories"]:
             logger.error("Required key 'needed' is missing in the categories part of scheme!")
             return False
     return True
 
 def fetch_category_name(url:str, scheme:json):
+    """ This function is used to extract specific parts from an url describing a category """
     logging.debug("Fetch category for url %s", url)
-    category_path = 1
     if "category_path" in scheme["categories"]:
         category_path = scheme["categories"]["category_path"]
 
     #if category path = "" -> First path descriptor is used (e.g. sld.tld/<<username>>) is used
     parsed_url = urlparse.urlparse(url)
-    category = parsed_url.path.split('/')[1]
+    category = parsed_url.path.split('/')[category_path]
     return category
 
 def fetch_scheme_file_by_file(url):
@@ -285,7 +280,7 @@ def fetch_scheme_file_by_file(url):
 
         #Check if the scheme file is a url template (used for websites) or
         #a system template (for local use)
-        if "url_template" in scheme and scheme["url_template"] == True:
+        if "url_template" in scheme and scheme["url_template"] is True:
             if not validate_url_scheme(scheme):
                 logging.error("Scheme %s is not a valid url scheme!", scheme_file)
                 continue
@@ -440,7 +435,6 @@ def decide_storage_path(url, scheme):
                 logging.info("""Category %s don't have an individual storage path! -
                              Use path %s""", category_name, base_path)
             return base_path
-
 
         if scheme["categories"]["needed"] is True:
             #if url don't have category -> Fail
@@ -629,7 +623,6 @@ def save_file_to_db(scheme_data, full_file_path, file_hash, url, metadata):
     an SQL Insert wrapper"""
     #Video hash not exist as saved item add it...
     logger.info("Add Video to DB")
-    scheme = scheme_data["scheme"]
     scheme_path = scheme_data["scheme_path"]
 
     head, tail = os.path.split(full_file_path)

@@ -1,0 +1,4 @@
+requests >= 2.3.1
+tldextract >= 5.1.2
+prettytable >= 3.10.0
+yt_dlp >= 2024.4.9
