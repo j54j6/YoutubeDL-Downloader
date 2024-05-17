@@ -178,7 +178,6 @@ def show_help():
     print("Example: yt-manager.py add-subscription youtube-url")
     print("------------------------------------------------------------------")
 
-
 def alive_check(url: str):
     """ #This function is used to check if the provided url works (HTTP 200 - OK)
         #if not the video can not be downloaded """
