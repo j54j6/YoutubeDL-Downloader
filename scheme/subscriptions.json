@@ -11,6 +11,7 @@
             "passed_subscription_path": {"type": "text", "not_null": true},
             "subscription_last_checked": {"type": "DATETIME", "default": "CURRENT_TIMESTAMP"},
             "subscription_created": {"type": "DATETIME", "default": "CURRENT_TIMESTAMP"},
+            "downloaded_content_count": {"type": "integer", "not_null": true, "default": "0"},
             "subscription_content_count": {"type": "integer", "not_null": true},
             "subscription_has_new_data": {"type": "integer", "not_null": true, "default": "1"},
             "subscription_data": {"type": "text", "not_null": true}

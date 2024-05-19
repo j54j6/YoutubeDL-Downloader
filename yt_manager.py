@@ -27,7 +27,7 @@ import sys
 #import argparse
 
 # Own Modules
-from project_functions import show_help, direct_download, scheme_setup, add_subscription, del_subscription
+from project_functions import show_help, direct_download, scheme_setup, add_subscription, del_subscription, list_subscriptions
 from database_manager import check_db
 from config_handler import check_for_config
 
@@ -108,6 +108,11 @@ if len(sys.argv) > 1:
             sys.exit()
         case "list-subscriptions":
             #Show all subscriptions
+            if len(sys.argv) > 2:
+                filter_list = list(sys.argv[2].split(","))
+                list_subscriptions(filter_list)
+            else:
+                list_subscriptions(None)
             sys.exit()
         case "custom":
             #Download a custom Item without being part of a subscription

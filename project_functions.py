@@ -441,7 +441,7 @@ def decide_storage_path(url, scheme):
     """General configuration db table (config) provides a base location where all stuff
     from this script needs to be saved..."""
     #First fetch the base location...
-    data = fetch_value("config", "option_name", "base_location", ["option_value"], True)
+    data = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
     if not data:
         logging.error("Error while fetching data from config db! - Please check log")
         return False
@@ -658,7 +658,7 @@ def prepare_scheme_dst_data(url):
     #Check if the url is reachable
     url_alive = alive_check(url)
     #Check if the given url already exists in the items db
-    url_already_exist = fetch_value("items", "url", url, ["url"], True)
+    url_already_exist = fetch_value("items", {"url": url}, ["url"], True)
     #Try to load a scheme matching the current url
     scheme = load_scheme(url)
 
@@ -703,7 +703,7 @@ def save_file_to_db(scheme_data, full_file_path, file_hash, url, metadata):
     head, tail = os.path.split(full_file_path)
     logging.debug("Scheme Data: %s", scheme_path)
     #Line Break for Pylint #C0301
-    use_tags_ydl = fetch_value_as_bool("config", "option_name", "use_tags_from_ydl",
+    use_tags_ydl = fetch_value_as_bool("config", {"option_name": "use_tags_from_ydl"},
                                        ["option_value"], True)
     #Define base data
     video_data = {
@@ -731,8 +731,8 @@ def save_file_to_db(scheme_data, full_file_path, file_hash, url, metadata):
     if not video_registered:
         logger.error("Error while saving file to db!! - Please check log.")
         #Line Break for Pylint #C0301
-        remove_file = fetch_value_as_bool("config", "option_name",
-                                          "remove_file_on_post_process_error",
+        remove_file = fetch_value_as_bool("config", {"option_name":
+                                                     "remove_file_on_post_process_error"},
                                           ["option_value"], True)
         if remove_file:
             logger.info("Remove file due to config setting.")
@@ -750,8 +750,9 @@ def save_file_to_db(scheme_data, full_file_path, file_hash, url, metadata):
 def error_post_processing(full_file_path):
     """ This function is used to remove downloaded files if anything fails during post processing"""
     #Line Break for Pylint #C0301
-    remove_file = fetch_value_as_bool("config", "option_name",
-                                      "remove_file_on_post_process_error", ["option_value"], True)
+    remove_file = fetch_value_as_bool("config", {"option_name":
+                                                 "remove_file_on_post_process_error"},
+                                        ["option_value"], True)
     if remove_file:
         logger.info("Remove file due to config setting.")
         os.remove(full_file_path)
@@ -808,7 +809,7 @@ def direct_download(url:str):
     #Check if hash is already in database
     #If hash is not in db -> Video is new -
     #If hash is in db video already exist. Check if the url is the same
-    hash_exist = fetch_value("items", "file_hash", file_hash["hash"], None, True)
+    hash_exist = fetch_value("items", {"file_hash": file_hash["hash"]}, None, True)
 
     if not hash_exist:
         video_registered = save_file_to_db(prepared_data,
@@ -966,7 +967,9 @@ def add_subscription(url:str):
         return False
 
     #Check if subscription already exist
-    subscription_exist = fetch_value("subscriptions", "subscription_path", subscription_data["formed_subscription_url"], ["id"], True)
+    subscription_exist = fetch_value("subscriptions",
+                                     {"subscription_path": subscription_data["formed_subscription_url"]},
+                                       ["id"], True)
 
     if subscription_exist is not None:
         logging.info("%s subscription for %s already exists!", data["scheme"]["schema_name"], subscription_data["subscription_name"])
@@ -1003,12 +1006,12 @@ def add_subscription(url:str):
     return True
 
 def del_subscription(identifier:str):
-    """ This function removes a passed subscription from the database (This function does NOT remove the files!)"""    
+    """ This function removes a passed subscription from the database (This function does NOT remove the files!)"""
     if validators.url(identifier):
         #Remove with url as ident
 
-        subscription_exist_1 = fetch_value("subscriptions", "subscription_path", identifier, ["id"], True)
-        subscription_exist_2 = fetch_value("subscriptions", "passed_subscription_path", identifier, ["id"], True)
+        subscription_exist_1 = fetch_value("subscriptions", {"subscription_path": identifier}, ["id"], True)
+        subscription_exist_2 = fetch_value("subscriptions", {"passed_subscription_path": identifier}, ["id"], True)
 
         if subscription_exist_1 is None and subscription_exist_2 is None:
             logger.info("Subscription does not exist!")
@@ -1018,12 +1021,12 @@ def del_subscription(identifier:str):
             {"subscription_path": identifier},
             {"passed_subscription_path": identifier}])
     else:
-        subscription_exist = fetch_value("subscriptions", "subscription_name", identifier, ["id"], True)
+        subscription_exist = fetch_value("subscriptions", {"subscription_name": identifier}, ["id"], True)
 
         if subscription_exist is None:
             logger.info("Subscription does not exist!")
             return True
-        
+
         subscription_deleted = delete_value("subscriptions", {"subscription_name": identifier})
 
     if not subscription_deleted:
@@ -1031,3 +1034,38 @@ def del_subscription(identifier:str):
         return False
     logging.info("Subscription removed.")
     return True
+
+def list_subscriptions(scheme_filter:list=None):
+    """This function list all subscriptions with prettyTables"""
+    if scheme_filter is None:
+        logging.debug("List all subscriptions")
+        #List all subscriptions
+        subscriptions = fetch_value("subscriptions",
+                                    None,
+                                    [
+                                        "scheme",
+                                        "subscription_name",
+                                        "subscription_path",
+                                        "subscription_last_checked",
+                                        "downloaded_content_count",
+                                        "subscription_content_count"
+                                    ], extra_sql="ORDER BY scheme")
+
+    else:
+        logging.debug("List subscriptions with Filter")
+        conditions = []
+        for condition in scheme_filter:
+            conditions.append({"scheme": condition})
+
+        subscriptions = fetch_value("subscriptions",
+                                    conditions,
+                                    [
+                                        "scheme",
+                                        "subscription_name",
+                                        "subscription_path",
+                                        "subscription_last_checked",
+                                        "downloaded_content_count",
+                                        "subscription_content_count"
+                                    ], extra_sql="ORDER BY scheme")
+    
+    print(subscriptions)

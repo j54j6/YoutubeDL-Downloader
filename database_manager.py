@@ -248,7 +248,7 @@ def create_table(name:str, scheme:json):
         logger.error("Error while creating table %s Error: %s", name, e)
         return False
 
-def fetch_value(table:str, row_name:str, value:str, data_filter:list = None, is_unique=False):
+def fetch_value(table:str, conditions:dict|list=None, data_filter:dict|list = None, is_unique=False, extra_sql=None):
     """ Fetch a value from a database based on a json filter {""} """
     if not db_init:
         init = check_db()
@@ -285,11 +285,37 @@ def fetch_value(table:str, row_name:str, value:str, data_filter:list = None, is_
     #except Exception as e:
     #    logger.error(f"Error while executing Insert Statement! - Error: {e}")
     #    return False
+    query = f"SELECT {query_filter} from {table} "
+    #Create filter
+    conditions_part = ""
+    if conditions is not None:
+        if isinstance(conditions, dict):
+            query += " WHERE "
+            for condition in conditions:
+                conditions_part += condition + f"=\"{conditions[condition]}\" AND "
+            conditions_part = conditions_part[:-5]
+        elif isinstance(conditions, list):
+            query += " WHERE "
+            for condition_set in conditions:
+                #Iterate over all conditions
+                for condition in condition_set:
+                    conditions_part += condition + f"=\"{condition_set[condition]}\" AND "
+                conditions_part = conditions_part[:-5]
+                conditions_part += " OR "
+            conditions_part = conditions_part[:-4]
+        else:
+            logging.error("Unsupported type for conditions! - Conditions will be ignored! - Type: %s", type(conditions))
+
+
+    query = query + conditions_part
+
+    if extra_sql is not None:
+        query = query + " " + extra_sql
+        
+    logging.debug("Prepared Query: %s", query)
     cursor = ENGINE.cursor()
     try:
-        query = f"SELECT {query_filter} from {table} WHERE {row_name} = ?;"
-        data = cursor.execute(query, [value])
-
+        data = cursor.execute(query)
         if not is_unique:
             return data.fetchall()
         return data.fetchone()
@@ -301,13 +327,13 @@ def fetch_value(table:str, row_name:str, value:str, data_filter:list = None, is_
         return False
 
 #Pylint C0301
-def fetch_value_as_bool(table:str, row_name:str, value:str,
+def fetch_value_as_bool(table:str, conditions:dict|list=None,
                         data_filter:list = None, is_unique=False):
     """ This function is used to fetch a value from a database.
         The filter is a list containing all fields that need to be returned.
         If "is_unique" = True, fetchfirst() instead of fetchall() is returned"""
     try:
-        value = fetch_value(table, row_name, value, data_filter, is_unique)
+        value = fetch_value(table, conditions, data_filter, is_unique)
         value = value[0]
 
         if isinstance(value, str):
@@ -425,7 +451,7 @@ def delete_value(table:str, conditions: dict|list):
         conditions_part = conditions_part[:-5]
     elif isinstance(conditions, list):
         for condition_set in conditions:
-            #Iterate over all conditions 
+            #Iterate over all conditions
             for condition in condition_set:
                 conditions_part += condition + f"=\"{condition_set[condition]}\" AND "
             conditions_part = conditions_part[:-5]
