@@ -1,0 +1,30 @@
+{
+    "schema_name": "instagram",
+    "url_template": true,
+    "db": {
+        "table_needed": false
+    },
+    "url_scheme": {
+        "tld": ["com"],
+        "sld": ["instagram"],
+        "subd": ["www", ""]
+    },
+    "categories":
+    {
+        "available": false
+    },
+    "header":
+    {
+        "Cookie": "accessAgeDisclaimer=1"
+    },
+    "subscription": {
+        "available": true,
+        "subscription_name_locator": 1,
+        "url_blueprint": "{scheme}://{subd}.{sld}.{tld}/{subscription_name}/reels"
+    },
+    "storage":
+    {
+        "category_storage": false,
+        "base_path": "instagram"
+    }
+}

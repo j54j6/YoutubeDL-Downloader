@@ -1043,6 +1043,7 @@ def list_subscriptions(scheme_filter:list=None):
         subscriptions = fetch_value("subscriptions",
                                     None,
                                     [
+                                        "id"
                                         "scheme",
                                         "subscription_name",
                                         "subscription_path",
@@ -1060,12 +1061,54 @@ def list_subscriptions(scheme_filter:list=None):
         subscriptions = fetch_value("subscriptions",
                                     conditions,
                                     [
-                                        "scheme",
+                                        "id",
                                         "subscription_name",
-                                        "subscription_path",
-                                        "subscription_last_checked",
+                                        "scheme",
+                                        "subscription_content_count",
                                         "downloaded_content_count",
-                                        "subscription_content_count"
+                                        "subscription_last_checked",
+                                        "subscription_path"
                                     ], extra_sql="ORDER BY scheme")
-    
-    print(subscriptions)
+
+    subscriptions_table = PrettyTable(['ID', 'Name', 'Scheme', 'Avail. Videos', 'Downloaded Videos', 'Last checked', 'url'])
+    subscriptions_table.align['ID'] = "c"
+    subscriptions_table.align['Name'] = "l"
+    subscriptions_table.align['Scheme'] = "l"
+    subscriptions_table.align['Avail. Videos'] = "c"
+    subscriptions_table.align['Downloaded Videos'] = "c"
+    subscriptions_table.align['Last checked'] = "c"
+    subscriptions_table.align['url'] = "l"
+
+    for index, subscription in enumerate(subscriptions):
+        enable_divider = False
+        if index < len(subscriptions)-1:
+            if subscription[2] != subscriptions[index+1][2]:
+                enable_divider = True
+            else:
+                logger.debug("%s == %s", subscription[2] , subscriptions[index][2])
+
+        if enable_divider:
+            logger.debug("For ID %s no divider needed!", subscription[0])
+            subscriptions_table.add_row([
+                subscription[0],
+                subscription[1],
+                subscription[2],
+                subscription[3],
+                subscription[4],
+                subscription[5],
+                subscription[6]],
+                divider=True)
+        else:
+            logger.debug("For ID %s no divider needed!", subscription[0])
+            subscriptions_table.add_row([
+                subscription[0],
+                subscription[1],
+                subscription[2],
+                subscription[3],
+                subscription[4],
+                subscription[5],
+                subscription[6]],
+                divider=False)
+        enable_divider = False
+
+    print(subscriptions_table)

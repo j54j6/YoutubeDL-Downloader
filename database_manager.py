@@ -311,7 +311,7 @@ def fetch_value(table:str, conditions:dict|list=None, data_filter:dict|list = No
 
     if extra_sql is not None:
         query = query + " " + extra_sql
-        
+
     logging.debug("Prepared Query: %s", query)
     cursor = ENGINE.cursor()
     try:
