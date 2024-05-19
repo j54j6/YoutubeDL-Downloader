@@ -30,8 +30,8 @@ def create_default_config(
     ):
     """#This function is used to define a default config."""
     #Add Default configuration for values needed for the whole project
-    config.add_section('main')
-
+    config.add_section('other')
+    config.set('other', 'timezone', 'Europe/Berlin')
     config.add_section('db')
     config.set('db', 'db_driver', 'sqlite')
     config.set('db', 'db_path', './')
@@ -39,6 +39,7 @@ def create_default_config(
     config.set('db', 'db_host', 'localhost')
     config.set('db', 'db_user', 'username')
     config.set('db', 'db_pass', 'password')
+
 
     try:
         with open(path, 'w', encoding="utf-8") as f:

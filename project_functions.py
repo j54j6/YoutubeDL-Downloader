@@ -23,20 +23,23 @@ import json
 import pathlib
 import hashlib
 import re
+from datetime import datetime, timezone
 
 import urllib.parse as urlparse
 
 import requests
 import tldextract
 import validators
+import pytz
 
 from prettytable import PrettyTable
 from yt_dlp import YoutubeDL, DownloadError
 
 #own modules
-from database_manager import (check_table_exist, create_table,
+from database_manager import (check_table_exist, create_table, update_value,
                 insert_value, fetch_value, fetch_value_as_bool, delete_value)
 
+from config_handler import config
 # init logger
 logger = logging.getLogger(__name__)
 
@@ -946,14 +949,28 @@ def create_subscription_url(url:str, scheme:json):
     return_val["status"] = True
     return return_val
 
-def add_subscription(url:str):
-    """ Add a subscription to the database """
-    #Check if the url is supported by any scheme
-    data = prepare_scheme_dst_data(url)
+def get_subscription_data_obj(url:str):
+    """ Returns a subscription object containing all needed information about a channel/playlist or whatever"""
+    subscription_entry:dict = {
+        "status": False,
+        "exist_in_db": False
+    }
 
+    subscription_entry["obj"] = {
+            "scheme": None,
+            "subscription_name": None,
+            "subscription_path": None,
+            "passed_subscription_path": url,
+            "subscription_content_count": None,
+            "current_subscription_data": None,
+            "last_subscription_data": None
+        }
+
+
+    data = prepare_scheme_dst_data(url)
     if data["status"] is False or data["scheme"] is None:
         logger.error("The provided url is not supported!")
-        return False
+        return subscription_entry
 
     logger.debug("Used scheme for url is: %s", data["scheme"])
 
@@ -962,47 +979,76 @@ def add_subscription(url:str):
     if not subscription_data["status"]:
         if subscription_data["subscribable"] is False:
             logging.info("Can't add subscription - Scheme %s does not support subscriptions", data["scheme"]["schema_name"])
-            return False
+            return subscription_entry
         logging.error("Error while fetching subscription data!")
-        return False
-
-    #Check if subscription already exist
-    subscription_exist = fetch_value("subscriptions",
-                                     {"subscription_path": subscription_data["formed_subscription_url"]},
-                                       ["id"], True)
-
-    if subscription_exist is not None:
-        logging.info("%s subscription for %s already exists!", data["scheme"]["schema_name"], subscription_data["subscription_name"])
-        return True
+        return subscription_entry
 
     metadata = get_metadata(subscription_data["formed_subscription_url"],
                             get_ydl_opts(data["dst_path"], {'quiet': False, 'extract_flat': 'in_playlist'}))
 
     if not metadata:
         logging.error("Error while fetching metadata for subscription! - Please check the log.")
-        return False
+        return subscription_entry
 
     if("playlist_count" not in metadata or
        "entries" not in metadata or
        "_type" not in metadata):
         logging.error("Fetched metadata does not contain all information needed! - Data: %s", metadata)
+        return subscription_entry
+
+    obj = {}
+    obj["scheme"] = data["scheme"]["schema_name"]
+    obj["passed_subscription_path"] = url
+    obj["subscription_name"] = subscription_data["subscription_name"]
+    obj["subscription_path"] = subscription_data["formed_subscription_url"]
+    obj["subscription_content_count"] = metadata["playlist_count"]
+    obj["current_subscription_data"] = metadata
+
+    subscription_entry["obj"] = obj
+
+    entry_in_db = fetch_value("subscriptions",
+                                {"subscription_path": subscription_data["formed_subscription_url"]},
+                                ["id", "scheme", "subscription_name"], True)
+
+    if entry_in_db is None:
+        subscription_entry["exist_in_db"] = False
+    else:
+        subscription_entry["exist_in_db"] = True
+
+    subscription_entry["status"] = True
+    return subscription_entry
+
+def add_subscription(url:str):
+    """ Add a subscription to the database """
+    #Lazy check if the entry already exist in db before downloading metadata and doing stuff...
+    #Check if subscription already exist
+    subscription_exist = fetch_value("subscriptions",
+                                    [
+                                        {"subscription_path": url},
+                                        {"passed_subscription_path": url}
+                                    ], ["id", "scheme", "subscription_name"], True)
+
+    if subscription_exist is not None:
+        logging.info("%s subscription for %s already exists!", subscription_exist[1], subscription_exist[2])
+        return True
+
+    subscription_obj = get_subscription_data_obj(url)
+
+    if not subscription_obj["status"]:
+        logging.error("Error while creating subscription obj!")
         return False
 
-    subscription_entry = {
-        "scheme": data["scheme"]["schema_name"],
-        "passed_subscription_path": url,
-        "subscription_name": subscription_data["subscription_name"],
-        "subscription_path": subscription_data["formed_subscription_url"],
-        "subscription_content_count": metadata["playlist_count"],
-        "subscription_data": metadata
-    }
+    #Check if the formatted link is already in db - This is url should every time the same
+    if subscription_obj["exist_in_db"]:
+        logging.info("%s subscription for %s already exists!", subscription_exist[1], subscription_exist[2])
+        return True
 
-    added_subscr = insert_value("subscriptions", subscription_entry)
+    added_subscr = insert_value("subscriptions", subscription_obj["obj"])
 
     if not added_subscr:
-        logging.error("Error while inserting subscription for %s into db! - Check log", subscription_data["subscription_name"])
+        logging.error("Error while inserting subscription for %s into db! - Check log", subscription_obj["obj"]["subscription_name"])
         return False
-    logging.info("Subscription for %s successfully created.", subscription_data["subscription_name"])
+    logging.info("Subscription for %s successfully created.", subscription_obj["obj"]["subscription_name"])
     return True
 
 def del_subscription(identifier:str):
@@ -1070,6 +1116,10 @@ def list_subscriptions(scheme_filter:list=None):
                                         "subscription_path"
                                     ], extra_sql="ORDER BY scheme")
 
+    if subscriptions is None:
+        logger.error("Error while fetching DB data!")
+        return False
+
     subscriptions_table = PrettyTable(['ID', 'Name', 'Scheme', 'Avail. Videos', 'Downloaded Videos', 'Last checked', 'url'])
     subscriptions_table.align['ID'] = "c"
     subscriptions_table.align['Name'] = "l"
@@ -1078,14 +1128,20 @@ def list_subscriptions(scheme_filter:list=None):
     subscriptions_table.align['Downloaded Videos'] = "c"
     subscriptions_table.align['Last checked'] = "c"
     subscriptions_table.align['url'] = "l"
-
+    video_is = 0
+    video_should = 0
     for index, subscription in enumerate(subscriptions):
+        video_is = video_is + int(subscription[4])
+        video_should = video_should + int(subscription[3])
         enable_divider = False
         if index < len(subscriptions)-1:
             if subscription[2] != subscriptions[index+1][2]:
                 enable_divider = True
             else:
                 logger.debug("%s == %s", subscription[2] , subscriptions[index][2])
+
+        if index == len(subscriptions)-1:
+            enable_divider = True
 
         if enable_divider:
             logger.debug("For ID %s no divider needed!", subscription[0])
@@ -1111,4 +1167,132 @@ def list_subscriptions(scheme_filter:list=None):
                 divider=False)
         enable_divider = False
 
+    subscriptions_table.add_row(["Total: ",len(subscriptions),'',video_should,video_is,'',''])
+
     print(subscriptions_table)
+    return True
+
+def get_current_time():
+    """Returns the current time like 2024-02-12 12:45:33"""
+    try:
+        user_tz = config.get("other", "timezone")
+
+        timezone_data = pytz.timezone(user_tz)
+        current_time = datetime.now(timezone_data).strftime("%Y-%m-%d %H:%M:%S")
+        return current_time
+    except pytz.UnknownTimeZoneError:
+        logger.error("Timezone not known! - You can choose between the following: %s - current: %s", pytz.all_timezones, user_tz)
+        return -1
+
+def update_subscriptions():
+    """ This function iterates over all subscriptions and update them. It will NOT download any files!"""
+    subscriptions = fetch_value("subscriptions",
+                                None,
+                                [
+                                    "scheme",
+                                    "subscription_name",
+                                    "subscription_path",
+                                    "subscription_last_checked",
+                                    "downloaded_content_count",
+                                    "subscription_content_count",
+                                    "id",
+                                    "current_subscription_data"
+                                ],
+                                False,
+                                "ORDER BY scheme")
+
+    if not subscriptions:
+        logging.error("Error while fetching subscription data! - Please check log.")
+        return False
+
+    error_during_process = False
+    faulty_subscriptions = []
+    faulty_messages = []
+    current_time = get_current_time()
+
+    if current_time == -1:
+        #Time cant be fetched! - This will have effect on all subscriptions - abort...
+        return False
+
+    #Iterate over all subscriptions
+    for subscription in subscriptions:
+        #Fetch the current object of the subscription
+        current_obj = get_subscription_data_obj(subscription[2])
+
+        if not current_obj["status"]:
+            logging.error("Error while fetching actual metadata for subscription %s", subscription[1])
+
+        #Check for number of items
+        if current_obj["obj"]["subscription_content_count"] == subscription[5] and not subscription[4] != current_obj["obj"]["subscription_content_count"]:
+            #No update avail - Modify subscription data and continue
+
+            table_updates = update_value(
+                "subscriptions",
+                {
+                    "subscription_last_checked": current_time,
+                    "last_subscription_data": subscription[7],
+                    "current_subscription_data": current_obj["obj"]["current_subscription_data"],
+                    "subscription_has_new_data": "0"
+                },
+                {"id": subscription[6]}
+            )
+        elif current_obj["obj"]["subscription_content_count"] < subscription[5]:
+            #Less avail than before - just send a message...
+            faulty_subscriptions.append(subscription[1])
+            faulty_messages.append("Number of items is less than the last check! - Last time: %s, This time: %s", subscription[5], current_obj["obj"]["subscription_content_count"])
+
+            #Update table
+            table_updates = update_value(
+                "subscriptions",
+                {
+                    "subscription_last_checked": current_time,
+                    "last_subscription_data": subscription[7],
+                    "current_subscription_data": current_obj["obj"]["current_subscription_data"],
+                    "subscription_has_new_data": "0",
+                    "subscription_content_count": current_obj["obj"]["subscription_content_count"]
+                },
+                {"id": subscription[6]}
+            )
+        else:
+            #Updates avail
+            logger.info("New content for %s availiable", current_obj["obj"]["subscription_name"])
+            #Update table
+            table_updates = update_value(
+                "subscriptions",
+                {
+                    "subscription_last_checked": current_time,
+                    "last_subscription_data": subscription[7],
+                    "current_subscription_data": current_obj["obj"]["current_subscription_data"],
+                    "subscription_has_new_data": "1",
+                    "subscription_content_count": current_obj["obj"]["subscription_content_count"]
+                },
+                {"id": subscription[6]}
+            )
+
+        if not table_updates:
+            logger.error("Error while updating table!")
+            faulty_subscriptions.append(subscription[1])
+            faulty_messages.append("Error while updating subscription!")
+            error_during_process = True
+            continue
+        logger.info("Subscription %s successfully updated", subscription[1])
+
+    if len(faulty_subscriptions) > 0:
+        for index, subscription in enumerate(faulty_subscriptions):
+            logger.warning("Subscription %s exited with an error! - Message: %s", subscription, faulty_messages[index])
+
+    if error_during_process:
+        logger.error("Please check messages abve!")
+        return False
+    return True
+
+def start():
+    """This function iterates over all subscriptions and checks for new content and downloads it"""
+    logging.info("Checking all subscriptions for updates")
+
+    updated = update_subscriptions()
+
+    if not updated:
+        logging.error("Error while updating subscriptions!")
+
+

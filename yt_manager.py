@@ -27,7 +27,9 @@ import sys
 #import argparse
 
 # Own Modules
-from project_functions import show_help, direct_download, scheme_setup, add_subscription, del_subscription, list_subscriptions
+from project_functions import (show_help, direct_download, scheme_setup,
+                               add_subscription, del_subscription, list_subscriptions,
+                               start)
 from database_manager import check_db
 from config_handler import check_for_config
 
@@ -125,6 +127,7 @@ if len(sys.argv) > 1:
             sys.exit()
         case "start":
             #Run the script to check for new content and download it
+            start()
             sys.exit()
         case "validate":
             #Rehash all files and compare them to the already stored files.

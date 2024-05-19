@@ -351,7 +351,7 @@ def fetch_value_as_bool(table:str, conditions:dict|list=None,
         logger.error("Error while fetching data from DB! - Error %s", e)
         return False
 
-def insert_value(table:str, data:json):
+def insert_value(table:str, data:dict):
     """Insert a value into a given table.
         Data are passed as JSON with the following format:
         {"column_name": value:str|dict|list}"""
@@ -469,4 +469,73 @@ def delete_value(table:str, conditions: dict|list):
     except sqlite3.Error as e:
         logger.error("Error while deleting value from table %s SQL Error: %s", table, e)
         logger.error("Statemet: %s", query)
+        return False
+
+def update_value(table:str, data:dict, conditions:dict|list, extra_sql:str=None):
+    """ This function updates a table """
+    if not(check_table_exist(table)):
+        logging.error("Table %s does not exist! - Can't update table...", table)
+        return False
+    values = []
+    query = f"UPDATE {table} SET "
+
+    for data_set in data:
+        if isinstance(data[data_set], int):
+            logging.debug("Key %s is an int", data_set)
+            query += data_set + "= ?"
+            values.append(data[data_set])
+        elif isinstance(data[data_set], (dict, list)):
+            logging.debug("Key %s is a dict or list", data_set)
+            try:
+                json_data = json.dumps(data[data_set])
+
+                query += data_set + "= ?"
+                values.append(json_data)
+            except json.JSONDecodeError:
+                logging.error("Error while converting value to json!")
+                return False
+        elif isinstance(data[data_set], str):
+            #try to convert to json
+            logging.debug("Key %s is a str", data_set)
+            query += data_set + "= ?"
+            values.append(data[data_set])
+        else:
+            logger.info("Type %s is not supported by update()! - Ignore value %s...", type(data[data_set]), data_set)
+            continue
+        query += ", "
+    query = query[:-2]
+
+    conditions_part = ""
+    if isinstance(conditions, dict):
+        query += " WHERE "
+        for condition in conditions:
+            conditions_part += condition + f"=\"{conditions[condition]}\" AND "
+        conditions_part = conditions_part[:-5]
+    elif isinstance(conditions, list):
+        query += " WHERE "
+        for condition_set in conditions:
+            #Iterate over all conditions
+            for condition in condition_set:
+                conditions_part += condition + f"=\"{condition_set[condition]}\" AND "
+            conditions_part = conditions_part[:-5]
+            conditions_part += " OR "
+        conditions_part = conditions_part[:-4]
+    else:
+        logging.error("Unsupported type for conditions! - Condition will be ignored! - Type: %s", type(conditions))
+    query = query + conditions_part + ";"
+    logger.debug("Prepared Query: %s ", query)
+
+    if extra_sql is not None:
+        query += " " + extra_sql
+    try:
+        cursor = ENGINE.cursor()
+        cursor.execute(query, values)
+        ENGINE.commit()
+
+        #Maybe a check if all data are inserted will be added in the future
+        #by adding a select statement (call fetch function)
+        return True
+    except sqlite3.Error as e:
+        logger.error("Error while updateing value in table %s SQL Error: %s", table, e)
+        logger.error("Statement: %s", query)
         return False
