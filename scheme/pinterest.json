@@ -5,13 +5,18 @@
         "table_needed": false
     },
     "url_scheme": {
-        "tld": ["com", "it"],
+        "tld": ["com", "it", "de"],
         "sld": ["pinterest", "pin"],
         "subd": ["www", ""]
     },
     "categories":
     {
         "available": false
+    },
+    "subscription": {
+        "available": true,
+        "subscription_name_locator": 1,
+        "url_blueprint": "{scheme}://{subd}.{sld}.{tld}/{subscription_name}"
     },
     "header": 
     {

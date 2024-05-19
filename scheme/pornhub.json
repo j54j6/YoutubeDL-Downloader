@@ -19,39 +19,50 @@
             {
                 "direct_download": false,
                 "subscription": true,
+                "subscription_url": "videos/upload",
                 "storage_path": "pornstars"
             },
             "model": 
             {
                 "direct_download": false,
                 "subscription": true,
+                "subscription_url": "videos/upload",
                 "storage_path": "model"
             },
             "channels": 
             {
                 "direct_download": false,
                 "subscription": true,
+                "subscription_url": "videos",
                 "storage_path": "channels"
             },
             "users": 
             {
                 "direct_download": false,
                 "subscription": true,
+                "subscription_url": "videos",
                 "storage_path": "users"
             },
             "playlist":
             {
                 "direct_download": false,
                 "subscription": true,
+                "subscription_url": "videos",
                 "storage_path": "playlists"
             },
             "view_video.php":
             {
                 "direct_download": true,
                 "subscription": false,
+                "subscription_url": false,
                 "storage_path": "custom"
             }
         }
+    },
+    "subscription": {
+        "available": true,
+        "subscription_name_locator": 2,
+        "url_blueprint": "{scheme}://{subd}.{sld}.{tld}/{category}/{subscription_name}/{subscription_url}"
     },
     "header": 
     {

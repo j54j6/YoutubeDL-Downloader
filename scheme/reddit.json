@@ -17,6 +17,9 @@
     {
         "Cookie": "accessAgeDisclaimerPH=1"
     },
+    "subscription": {
+        "available": false
+    },
     "storage":
     {
         "category_storage": false,

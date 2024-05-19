@@ -22,6 +22,7 @@ import logging
 import json
 import pathlib
 import hashlib
+import re
 
 import urllib.parse as urlparse
 
@@ -201,6 +202,8 @@ def validate_url_scheme(scheme:json):
     """ This function is used to validate loaded url schemes.
     It ensures that a defined set of keys are availiable """
     #Check basic keys needed for general function
+    last_faulty_category = None
+    last_missing_key = None
     needed_keys = ["schema_name", "url_template", "url_scheme", "categories", "storage"]
 
     all_keys_exist = True
@@ -236,13 +239,50 @@ def validate_url_scheme(scheme:json):
 
     if not all_keys_exist:
         #Line Break for Pylint #C0301
-        logging.error("""required category key 'available' is missing in the given scheme file! -
-                      Please check your scheme.""")
+        logging.error("""required category key 'available' is missing in the
+                      given scheme file! - Please check your scheme.""")
         return False
 
     if scheme["categories"]["available"] is True:
         if not "needed" in scheme["categories"]:
-            logger.error("Required key 'needed' is missing in the categories part of scheme!")
+            logger.error("""Required key 'needed' is missing in the categories
+                         part of scheme!""")
+            return False
+
+    #Check if categories have all needed keys
+    if "categories" in scheme["categories"]:
+        #Categories are defined check if they match the requirements
+        needed_keys = ["direct_download", "subscription",
+                       "subscription_url", "storage_path"]
+        all_keys_exist = True
+        for category in scheme["categories"]["categories"]:
+            for needed_key in needed_keys:
+                if not needed_key in scheme["categories"]["categories"][category]:
+                    all_keys_exist = False
+                    last_faulty_category = category
+                    last_missing_key = needed_key
+        if not all_keys_exist:
+            logging.error("""Category %s does not meet the minimum requirements!
+                           - Key %s is missing!""",
+                          last_faulty_category, last_missing_key)
+            return False
+
+    #Check for subscription keys
+    if("subscription" in scheme and
+       "availiable" in scheme["subscription"]
+       and scheme["subscription"]["availiable"] is True):
+        needed_subscription_scheme_keys = ["available", "subscription_name_locator", "url_blueprint"]
+        all_keys_exist = True
+
+        for required_key in needed_subscription_scheme_keys:
+            if not required_key in scheme["subscription"]:
+                last_missing_key = required_key
+                all_keys_exist = False
+
+        if not all_keys_exist:
+            logging.error("""Category subscription does not meet the minimum requirements!
+                           - Key %s is missing!""",
+                          last_missing_key)
             return False
     return True
 
@@ -258,6 +298,19 @@ def fetch_category_name(url:str, scheme:json):
     parsed_url = urlparse.urlparse(url)
     category = parsed_url.path.split('/')[category_path]
     return category
+
+def fetch_subscription_name(url:str, scheme:json):
+    """ This function is used to extract specific parts from an url describing the subscription object """
+    logging.debug("Fetch subscription name for url %s", url)
+    if "subscription" in scheme:
+        subscription_path = scheme["subscription"]["subscription_name_locator"]
+    else:
+        #This should not be used!
+        subscription_path = 2
+    #if category path = "" -> First path descriptor is used (e.g. sld.tld/<<username>>) is used
+    parsed_url = urlparse.urlparse(url)
+    subscription_name = parsed_url.path.split('/')[subscription_path]
+    return subscription_name
 
 def fetch_scheme_file_by_file(url):
     """ internal function used to iterate over all schemes in a dictionary and find a
@@ -320,8 +373,8 @@ def fetch_scheme_file(url:str):
             return return_val
 
         return scheme_check
-    logging.info("Scheme file for %s found", parsed_url.domain)
-    logging.info("Check if provided url %s is valid for scheme", parsed_url.domain)
+    logging.debug("Scheme file for %s found", parsed_url.domain)
+    logging.debug("Check if provided url %s is valid for scheme", parsed_url.domain)
     return_val["scheme_path"] = expected_scheme_path
     return_val["scheme_file"] = str(parsed_url.domain + ".json")
     return_val["status"] = True
@@ -459,7 +512,7 @@ def decide_storage_path(url, scheme):
             return path_ext
     return base_path
 
-def get_file_data(url, ydl_opts):
+def get_metadata(url, ydl_opts):
     """ This function is used to fetch all needed information about the requested file
     to save it later into db."""
     try:
@@ -481,16 +534,13 @@ def get_file_data(url, ydl_opts):
         logger.error("Error result seems to have no content! - \n\n Result: %s \n Error: %s",
                      file_data, e)
         return False
+    except TypeError as e:
+        logger.error("Error while fetching metadata! - Type Error: %s", e)
+        return False
 
-#This function downloads a file (url) and saves it to a defined path (path)
-def download_file(url, path):
-    """This function downloads the file specified in url and also provides the prepared
-        file path from ydl"""
-    logging.info("Downloading file from server")
-    return_val = {"status": False, "full_file_path": None, "metadata": None}
-
-    try:
-        ydl_opts = {
+def get_ydl_opts(path):
+    """ This function returns the standard settings for YT DLP"""
+    return {
             'format': 'best',
             'outtmpl': path + '/%(title)s.%(ext)s',
             'nooverwrites': True,
@@ -500,7 +550,17 @@ def download_file(url, path):
             'restrict-filenames': True
         }
 
-        metadata = get_file_data(url, ydl_opts)
+#This function downloads a file (url) and saves it to a defined path (path)
+def download_file(url, path):
+    """This function downloads the file specified in url and also provides the prepared
+        file path from ydl"""
+    logging.info("Downloading file from server")
+    return_val = {"status": False, "full_file_path": None, "metadata": None}
+
+    try:
+        ydl_opts = get_ydl_opts(path)
+
+        metadata = get_metadata(url, ydl_opts)
         if not metadata or not "title" in metadata or not "ext" in metadata:
             #Line Break for Pylint #C0301
             logger.error("""Error while fetching metadata from target server! -
@@ -577,7 +637,7 @@ def load_scheme(url: str):
     return_scheme["scheme_path"] = scheme_path
     return return_scheme
 
-def prepare_file_download(url):
+def prepare_scheme_dst_data(url):
     """This function checks if the given url is alive and can be used to download a file
         using the defined templates
 
@@ -603,6 +663,13 @@ def prepare_file_download(url):
             return_val["status"] = 2
         if not scheme["status"]:
             logging.error("Error while loading scheme data! - Check log")
+        return return_val
+
+    #Check if laoded scheme is valid
+    scheme_validated = validate_url_scheme(scheme["scheme"])
+
+    if not scheme_validated:
+        logging.error("Error while validating scheme!")
         return return_val
 
     return_val["scheme_path"] = scheme["scheme_path"]
@@ -697,7 +764,7 @@ def direct_download(url:str):
     logger.info("""Directly download content from %s -
                 Check prerequisites and prepare download data""", url)
 
-    prepared_data = prepare_file_download(url)
+    prepared_data = prepare_scheme_dst_data(url)
 
 
     if prepared_data["status"] != 1:
@@ -752,3 +819,144 @@ def direct_download(url:str):
     #TODO
     #hash already exist - check if url is the same. If not add it to url
     return False
+
+def create_subscription_url(url:str, scheme:json):
+    """ This function creates the subscription url which will used to subscribe to a channel or anything else"""
+    logging.debug("Create subscription url for url %s", url)
+    return_val = {
+        "status": False,
+        "scheme": None,
+        "tld": None,
+        "sld": None,
+        "subd": None,
+        "subscription_name": None,
+        "category_avail": False,
+        "category": None,
+        "subscription_url": None,
+        "formed_subscription_url": None
+    }
+    if(not "subscription" in scheme or
+       not "available" in scheme["subscription"] or
+       scheme["subscription"]["available"] is not True or
+       not "url_blueprint" in scheme["subscription"]):
+        
+        if("subscription" in scheme and
+           "available" in scheme["subscription"] and
+           scheme["subscription"]["available"] is not True):
+            logging.info("Scheme %s does not support subscriptions!", scheme["schema_name"])
+            return return_val
+        logging.error("Scheme does not contain a subscription key or url blueprint!")
+        return return_val
+
+    #Check which parts are needed
+    url_blueprint:str = scheme["subscription"]["url_blueprint"]
+
+    blueprint_data = re.findall(r'{\w*}',url_blueprint)
+
+    tld_url_parts = tldextract.extract(url)
+    parsed_url_parts = urlparse.urlparse(url)
+
+    if parsed_url_parts.scheme is not None:
+        logging.debug("Key scheme is in parsed urls")
+        if "{scheme}" in blueprint_data:
+            logging.debug("Key scheme is in the blueprint subscription link. Add it...")
+            return_val["scheme"] = parsed_url_parts.scheme
+
+    if tld_url_parts.subdomain is not None:
+        logging.debug("Key subdomain is in parsed urls")
+        if "{subd}" in blueprint_data:
+            logging.debug("Key subd is in the blueprint subscription link. Add it...")
+            return_val["subd"] = tld_url_parts.subdomain
+
+    if tld_url_parts.domain is not None:
+        logging.debug("Key domain is in parsed urls")
+        if "{sld}" in blueprint_data:
+            logging.debug("Key sld is in the blueprint subscription link. Add it...")
+            return_val["sld"] = tld_url_parts.domain
+
+    if tld_url_parts.suffix is not None:
+        logging.debug("Key suffix is in parsed urls")
+        if "{tld}" in blueprint_data:
+            logging.debug("Key tld is in the blueprint subscription link. Add it...")
+            return_val["tld"] = tld_url_parts.suffix
+
+    #Check if the scheme supports categories
+    if("categories" in scheme and
+       "available" in scheme["categories"] and
+       scheme["categories"]["available"] is True):
+        logging.debug("Categories are available. Fetch data...")
+        #extract the category from the url
+        category = fetch_category_name(url, scheme)
+
+        #Check if a category was fetched
+        if category is not None:
+            logging.debug("Category found")
+            if "{category}" in blueprint_data:
+                logging.debug("Key category is in the blueprint subscription link. Add it...")
+                return_val["category_avail"] = True
+                return_val["category"] = category
+
+    subscription_name = fetch_subscription_name(url, scheme)
+
+    if not subscription_name:
+        logging.error("Can't fetch subscription name! - Maybe you cannot subscribe to the url?")
+        return False
+    if "{subscription_name}" in blueprint_data:
+        logging.debug("Key subscription_name is in the blueprint subscription link. Add it...")
+        return_val["subscription_name"] = subscription_name
+
+    if "{subscription_url}" in blueprint_data:
+        logging.debug("Key subscription_url is in the blueprint subscription link. Add it...")
+        if(return_val["category_avail"] and
+           category in scheme["categories"]["categories"] and
+           "subscription_url" in scheme["categories"]["categories"][category]):
+
+            if(scheme["categories"]["categories"][category]["subscription_url"] is not False and
+               scheme["categories"]["categories"][category]["subscription_url"] is not None and
+               scheme["categories"]["categories"][category]["subscription_url"] != ""):
+                logging.debug("Subscription url added...")
+                return_val["subscription_url"] = scheme["categories"]["categories"][category]["subscription_url"]
+
+    logging.debug("All url data prepared. Create Link")
+
+    supported_keys = ["scheme", "subd", "sld", "tld", "category", "subscription_name", "subscription_url"]
+
+    for part in supported_keys:
+        if return_val[part] is not None and return_val[part] is not False:
+            url_blueprint = url_blueprint.replace(f"{{{part}}}", return_val[part])
+        else:
+            url_blueprint = url_blueprint.replace(f"/{{{part}}}", "")
+
+    if url_blueprint.find("{") != -1 or url_blueprint.find("}") != -1:
+        logging.error("Error while creating correct subscription url! - Not all placeholders were replaced! - Url: %s", url_blueprint)
+        return return_val
+
+    logging.debug("Url successfully created")
+    return_val["formed_subscription_url"] = url_blueprint
+    return_val["status"] = True
+    return return_val
+
+
+def add_subscription(url:str):
+    """ Add a subscription to the database """
+    #Check if the url is supported by any scheme
+    data = prepare_scheme_dst_data(url)
+
+    if data["status"] is False or data["scheme"] is None:
+        logger.error("The provided url is not supported!")
+        return False
+
+    logger.debug("Used scheme for url is: %s", data["scheme"])
+
+    subscription_data = create_subscription_url(url, data["scheme"])
+
+    print(subscription_data)
+    exit()
+
+    metadata = get_metadata("https://www.reddit.com/r/wallstreetbetsGER/", get_ydl_opts(data["dst_path"]))
+
+    print(metadata)
+    exit()
+
+    print(metadata)
+    exit()
