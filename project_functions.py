@@ -519,7 +519,7 @@ def get_metadata(url, ydl_opts):
         with YoutubeDL(ydl_opts) as ydl:
             #We only need the metadata. So we don't need to download the whole file.
             #We will do this later...
-            file_data = ydl.extract_info(url, download=False)
+            file_data = ydl.sanitize_info(ydl.extract_info(url, download=False))
     except DownloadError as e:
         logging.error("Error while fetching File information from target server! - Error: %s", e)
         return False
@@ -538,17 +538,24 @@ def get_metadata(url, ydl_opts):
         logger.error("Error while fetching metadata! - Type Error: %s", e)
         return False
 
-def get_ydl_opts(path):
+def get_ydl_opts(path, addons:json=None):
     """ This function returns the standard settings for YT DLP"""
-    return {
-            'format': 'best',
-            'outtmpl': path + '/%(title)s.%(ext)s',
-            'nooverwrites': True,
-            'no_warnings': False,
-            'ignoreerrors': True,
-            'replace-in-metadata': True,
-            'restrict-filenames': True
-        }
+    opts = {
+                'format': 'best',
+                'outtmpl': path + '/%(title)s.%(ext)s',
+                'nooverwrites': True,
+                'no_warnings': False,
+                'ignoreerrors': True,
+                'replace-in-metadata': True,
+                'restrict-filenames': True
+            }
+    if addons is None:
+        #Return default set
+        return opts
+    else:
+        for key in addons:
+            opts[key] = addons[key]
+        return opts
 
 #This function downloads a file (url) and saves it to a defined path (path)
 def download_file(url, path):
@@ -825,6 +832,7 @@ def create_subscription_url(url:str, scheme:json):
     logging.debug("Create subscription url for url %s", url)
     return_val = {
         "status": False,
+        "subscribable": True,
         "scheme": None,
         "tld": None,
         "sld": None,
@@ -839,11 +847,12 @@ def create_subscription_url(url:str, scheme:json):
        not "available" in scheme["subscription"] or
        scheme["subscription"]["available"] is not True or
        not "url_blueprint" in scheme["subscription"]):
-        
+
         if("subscription" in scheme and
            "available" in scheme["subscription"] and
            scheme["subscription"]["available"] is not True):
             logging.info("Scheme %s does not support subscriptions!", scheme["schema_name"])
+            return_val["subscribable"] = False
             return return_val
         logging.error("Scheme does not contain a subscription key or url blueprint!")
         return return_val
@@ -936,7 +945,6 @@ def create_subscription_url(url:str, scheme:json):
     return_val["status"] = True
     return return_val
 
-
 def add_subscription(url:str):
     """ Add a subscription to the database """
     #Check if the url is supported by any scheme
@@ -950,13 +958,46 @@ def add_subscription(url:str):
 
     subscription_data = create_subscription_url(url, data["scheme"])
 
-    print(subscription_data)
-    exit()
+    if not subscription_data["status"]:
+        if subscription_data["subscribable"] is False:
+            logging.info("Can't add subscription - Scheme %s does not support subscriptions", data["scheme"]["schema_name"])
+            return False
+        logging.error("Error while fetching subscription data!")
+        return False
 
-    metadata = get_metadata("https://www.reddit.com/r/wallstreetbetsGER/", get_ydl_opts(data["dst_path"]))
+    #Check if subscription already exist
+    subscription_exist = fetch_value("subscriptions", "subscription_path", subscription_data["formed_subscription_url"], ["id"], True)
 
-    print(metadata)
-    exit()
+    if subscription_exist is not None:
+        logging.info("%s subscription for %s already exists!", data["scheme"]["schema_name"], subscription_data["subscription_name"])
+        return True
 
-    print(metadata)
-    exit()
+    metadata = get_metadata(subscription_data["formed_subscription_url"], 
+                            get_ydl_opts(data["dst_path"], {'quiet': False, 'extract_flat': 'in_playlist'}))
+
+    if not metadata:
+        logging.error("Error while fetching metadata for subscription! - Please check the log.")
+        return False
+
+    if("playlist_count" not in metadata or
+       "entries" not in metadata or
+       "_type" not in metadata):
+        logging.error("Fetched metadata does not contain all information needed! - Data: %s", metadata)
+        return False
+
+    subscription_entry = {
+        "scheme": data["scheme"]["schema_name"],
+        "subscription_name": subscription_data["subscription_name"],
+        "subscription_path": subscription_data["formed_subscription_url"],
+        "subscription_content_count": metadata["playlist_count"],
+        "subscription_data": metadata
+    }
+
+    added_subscr = insert_value("subscriptions", subscription_entry)
+
+    if added_subscr:
+        logging.info("Subscription for %s successfully created.", subscription_data["subscription_name"])
+        return True
+    else:
+        logging.error("Error while inserting subscription for %s into db! - Check log", subscription_data["subscription_name"])
+        return False

@@ -14,9 +14,7 @@
         "available": false
     },
     "subscription": {
-        "available": true,
-        "subscription_name_locator": 1,
-        "url_blueprint": "{scheme}://{subd}.{sld}.{tld}/{subscription_name}"
+        "available": false
     },
     "header": 
     {

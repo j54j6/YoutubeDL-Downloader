@@ -296,6 +296,9 @@ def fetch_value(table:str, row_name:str, value:str, data_filter:list = None, is_
     except sqlite3.Error as e:
         logger.error("Error while fetching value from table %s SQL Error: %s", table, e)
         return False
+    except TypeError as e:
+        logging.error("Error while fetching Value. Unexcepted type received! - Error: %s", e)
+        return False
 
 #Pylint C0301
 def fetch_value_as_bool(table:str, row_name:str, value:str,
