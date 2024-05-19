@@ -27,7 +27,7 @@ import sys
 #import argparse
 
 # Own Modules
-from project_functions import show_help, direct_download, scheme_setup, add_subscription
+from project_functions import show_help, direct_download, scheme_setup, add_subscription, del_subscription
 from database_manager import check_db
 from config_handler import check_for_config
 
@@ -100,6 +100,11 @@ if len(sys.argv) > 1:
             sys.exit()
         case "del-subscription":
             #Delete a subscription
+            if len(sys.argv) > 2:
+                del_subscription(sys.argv[2])
+            else:
+                logging.error("No url provided!")
+                show_help()
             sys.exit()
         case "list-subscriptions":
             #Show all subscriptions

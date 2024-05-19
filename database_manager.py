@@ -411,3 +411,36 @@ def insert_value(table:str, data:json):
         logger.error("Error while inserting value in table %s SQL Error: %s", table, e)
         logger.error("Statemet: Insert into  %s (%s) VALUES (?), %s", table, keys, values)
         return False
+
+def delete_value(table:str, conditions: dict|list):
+    """ Delete a value from db. Conditions are passed as json with columnname as key and column value as value"""
+    logging.debug("Remove from table %s", table)
+
+    query = f"DELETE FROM {table} WHERE "
+    conditions_part = ""
+
+    if isinstance(conditions, dict):
+        for condition in conditions:
+            conditions_part += condition + f"=\"{conditions[condition]}\" AND "
+        conditions_part = conditions_part[:-5]
+    elif isinstance(conditions, list):
+        for condition_set in conditions:
+            #Iterate over all conditions 
+            for condition in condition_set:
+                conditions_part += condition + f"=\"{condition_set[condition]}\" AND "
+            conditions_part = conditions_part[:-5]
+            conditions_part += " OR "
+        conditions_part = conditions_part[:-4]
+    query = query + conditions_part
+    try:
+        cursor = ENGINE.cursor()
+        cursor.execute(query)
+        ENGINE.commit()
+
+        #Maybe a check if all data are inserted will be added in the future
+        #by adding a select statement (call fetch function)
+        return True
+    except sqlite3.Error as e:
+        logger.error("Error while deleting value from table %s SQL Error: %s", table, e)
+        logger.error("Statemet: %s", query)
+        return False

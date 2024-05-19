@@ -28,13 +28,14 @@ import urllib.parse as urlparse
 
 import requests
 import tldextract
+import validators
 
 from prettytable import PrettyTable
 from yt_dlp import YoutubeDL, DownloadError
 
 #own modules
 from database_manager import (check_table_exist, create_table,
-                insert_value, fetch_value, fetch_value_as_bool)
+                insert_value, fetch_value, fetch_value_as_bool, delete_value)
 
 # init logger
 logger = logging.getLogger(__name__)
@@ -184,7 +185,7 @@ def alive_check(url: str):
         #if not the video can not be downloaded """
     #Check if url is reachable
     try:
-        requested_url = requests.get(url)
+        requested_url = requests.get(url, timeout=30)
         if requested_url.status_code == 200:
             return True
         #Line Break for Pylint #C0301
@@ -552,10 +553,9 @@ def get_ydl_opts(path, addons:json=None):
     if addons is None:
         #Return default set
         return opts
-    else:
-        for key in addons:
-            opts[key] = addons[key]
-        return opts
+    for key in addons:
+        opts[key] = addons[key]
+    return opts
 
 #This function downloads a file (url) and saves it to a defined path (path)
 def download_file(url, path):
@@ -972,7 +972,7 @@ def add_subscription(url:str):
         logging.info("%s subscription for %s already exists!", data["scheme"]["schema_name"], subscription_data["subscription_name"])
         return True
 
-    metadata = get_metadata(subscription_data["formed_subscription_url"], 
+    metadata = get_metadata(subscription_data["formed_subscription_url"],
                             get_ydl_opts(data["dst_path"], {'quiet': False, 'extract_flat': 'in_playlist'}))
 
     if not metadata:
@@ -987,6 +987,7 @@ def add_subscription(url:str):
 
     subscription_entry = {
         "scheme": data["scheme"]["schema_name"],
+        "passed_subscription_path": url,
         "subscription_name": subscription_data["subscription_name"],
         "subscription_path": subscription_data["formed_subscription_url"],
         "subscription_content_count": metadata["playlist_count"],
@@ -995,9 +996,38 @@ def add_subscription(url:str):
 
     added_subscr = insert_value("subscriptions", subscription_entry)
 
-    if added_subscr:
-        logging.info("Subscription for %s successfully created.", subscription_data["subscription_name"])
-        return True
-    else:
+    if not added_subscr:
         logging.error("Error while inserting subscription for %s into db! - Check log", subscription_data["subscription_name"])
         return False
+    logging.info("Subscription for %s successfully created.", subscription_data["subscription_name"])
+    return True
+
+def del_subscription(identifier:str):
+    """ This function removes a passed subscription from the database (This function does NOT remove the files!)"""    
+    if validators.url(identifier):
+        #Remove with url as ident
+
+        subscription_exist_1 = fetch_value("subscriptions", "subscription_path", identifier, ["id"], True)
+        subscription_exist_2 = fetch_value("subscriptions", "passed_subscription_path", identifier, ["id"], True)
+
+        if subscription_exist_1 is None and subscription_exist_2 is None:
+            logger.info("Subscription does not exist!")
+            return True
+
+        subscription_deleted = delete_value("subscriptions", [
+            {"subscription_path": identifier},
+            {"passed_subscription_path": identifier}])
+    else:
+        subscription_exist = fetch_value("subscriptions", "subscription_name", identifier, ["id"], True)
+
+        if subscription_exist is None:
+            logger.info("Subscription does not exist!")
+            return True
+        
+        subscription_deleted = delete_value("subscriptions", {"subscription_name": identifier})
+
+    if not subscription_deleted:
+        logging.error("Error while removing subscription!")
+        return False
+    logging.info("Subscription removed.")
+    return True

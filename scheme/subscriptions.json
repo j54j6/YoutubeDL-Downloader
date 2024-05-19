@@ -8,6 +8,7 @@
             "scheme": {"type": "text", "not_null": true},
             "subscription_name": {"type": "text", "not_null": true},
             "subscription_path": {"type": "text", "not_null": true},
+            "passed_subscription_path": {"type": "text", "not_null": true},
             "subscription_last_checked": {"type": "DATETIME", "default": "CURRENT_TIMESTAMP"},
             "subscription_created": {"type": "DATETIME", "default": "CURRENT_TIMESTAMP"},
             "subscription_content_count": {"type": "integer", "not_null": true},
