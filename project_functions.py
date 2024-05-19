@@ -1044,12 +1044,12 @@ def list_subscriptions(scheme_filter:list=None):
                                     None,
                                     [
                                         "id",
-                                        "scheme",
                                         "subscription_name",
-                                        "subscription_path",
-                                        "subscription_last_checked",
+                                        "scheme",
+                                        "subscription_content_count",
                                         "downloaded_content_count",
-                                        "subscription_content_count"
+                                        "subscription_last_checked",
+                                        "subscription_path"
                                     ], extra_sql="ORDER BY scheme")
 
     else:
