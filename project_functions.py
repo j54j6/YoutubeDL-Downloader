@@ -1043,7 +1043,7 @@ def list_subscriptions(scheme_filter:list=None):
         subscriptions = fetch_value("subscriptions",
                                     None,
                                     [
-                                        "id"
+                                        "id",
                                         "scheme",
                                         "subscription_name",
                                         "subscription_path",
