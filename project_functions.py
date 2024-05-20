@@ -23,7 +23,7 @@ import json
 import pathlib
 import hashlib
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 
 import urllib.parse as urlparse
 

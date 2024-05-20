@@ -32,7 +32,12 @@ ENGINE = None
 logger = logging.getLogger(__name__)
 
 def check_db():
-    """This function is used to initialize the database. """
+    """This function is used to initialize the database. 
+
+    Return Values:
+        - True -> Success
+        - False -> Failed
+    """
     global ENGINE
     global db_init
     logger.info("Init database...")
@@ -111,7 +116,12 @@ def check_db():
     return False
 
 def check_table_exist(table_name:str):
-    """ This function checks if the passed table name exists in the database"""
+    """ This function checks if the passed table name exists in the database
+
+        Return Values: bool
+        - True -> Table exist
+        - False -> Table dont exist / Error
+    """
     #OLD SQLALCHEMY CODE
     #sql_meta = MetaData()
     #try:
@@ -146,7 +156,12 @@ def check_table_exist(table_name:str):
 
 def prepare_sql_create_statement(name, scheme):
     """ This function is used to create tables based on a defined json scheme.
-        Check documentation for help """
+        Check documentation for help 
+        
+        Return Values:
+            - None -> Error
+            - SQL Statement     
+    """
     query:str = f"CREATE TABLE {name} ("
     primary_key_defined = False
     #Iterate over all defined columns. Check for different optionas and add them to the query.
@@ -159,14 +174,14 @@ def prepare_sql_create_statement(name, scheme):
             #PyLint C0301
             logger.error("""Error while creating table! -
                          Can't load options for coumn %s - Error: %s""", column_name, e)
-            return False
+            return None
 
         #For each column create a cache query based on SQL -> <<Name>> <<type>> <<options>>
         if not "type" in options:
             #PyLint C0301
             logger.error("""Error while creating table! -
                          Column %s does not include a valid \"type\" field!""", column_name)
-            return False
+            return None
         c_query += " " + options["type"]
 
         if "not_null" in options and options["not_null"] is True:
@@ -196,7 +211,12 @@ def prepare_sql_create_statement(name, scheme):
     return query
 
 def create_table(name:str, scheme:json):
-    """This function can create a table bases on a defined JSON scheme"""
+    """This function can create a table bases on a defined JSON scheme
+    
+        Return Values:bool
+        - true -> Success
+        - false -> Failed
+    """
     if not db_init:
         init = check_db()
         if not init:
@@ -354,7 +374,12 @@ def fetch_value_as_bool(table:str, conditions:dict|list=None,
 def insert_value(table:str, data:dict):
     """Insert a value into a given table.
         Data are passed as JSON with the following format:
-        {"column_name": value:str|dict|list}"""
+        {"column_name": value:str|dict|list}
+        
+        Return Values:bool
+        - True -> Success
+        - False -> Failed
+    """
 
     if not db_init:
         init = check_db()
@@ -439,7 +464,13 @@ def insert_value(table:str, data:dict):
         return False
 
 def delete_value(table:str, conditions: dict|list):
-    """ Delete a value from db. Conditions are passed as json with columnname as key and column value as value"""
+    """ Delete a value from db. Conditions are passed as json with columnname as key 
+        and column value as value
+
+        Return Values: bool
+        - True -> Success
+        - False -> Failed    
+    """
     logging.debug("Remove from table %s", table)
 
     query = f"DELETE FROM {table} WHERE "
@@ -472,7 +503,17 @@ def delete_value(table:str, conditions: dict|list):
         return False
 
 def update_value(table:str, data:dict, conditions:dict|list, extra_sql:str=None):
-    """ This function updates a table """
+    """ This function updates a table based on the passed data
+    
+        all data are passed as a dict in the followiung scheme {"key_name": "key_value"}
+        conditions can be passed as dict (one condition) (OR) or as a list of dict (AND)
+        also in the scheme {"column_name": "desired_value"}. If you use multiple keys they are
+        connected with an logic OR. if you use a list [{}, {}] -> It is a logic AND
+
+        Return Values: bool
+        - True -> Success
+        - False -> Failed
+    """
     if not(check_table_exist(table)):
         logging.error("Table %s does not exist! - Can't update table...", table)
         return False
@@ -500,7 +541,8 @@ def update_value(table:str, data:dict, conditions:dict|list, extra_sql:str=None)
             query += data_set + "= ?"
             values.append(data[data_set])
         else:
-            logger.info("Type %s is not supported by update()! - Ignore value %s...", type(data[data_set]), data_set)
+            logger.info("Type %s is not supported by update()! - Ignore value %s...", 
+                        type(data[data_set]), data_set)
             continue
         query += ", "
     query = query[:-2]
@@ -521,7 +563,8 @@ def update_value(table:str, data:dict, conditions:dict|list, extra_sql:str=None)
             conditions_part += " OR "
         conditions_part = conditions_part[:-4]
     else:
-        logging.error("Unsupported type for conditions! - Condition will be ignored! - Type: %s", type(conditions))
+        logging.error("Unsupported type for conditions! - Condition will be ignored! - Type: %s", 
+                      type(conditions))
     query = query + conditions_part + ";"
     logger.debug("Prepared Query: %s ", query)
 
