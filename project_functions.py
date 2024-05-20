@@ -117,7 +117,7 @@ def add_subscription_batch(file:str):
         - True: Success (Subscription successfully added to db)
         - False: Failed (Error while adding subscription. Most likly Ytdlp or SQLite error)
     """
-
+    file = os.path.abspath(file)
     if not os.path.isfile(file):
         logging.error("File %s doesn't exist!", file)
         return False
@@ -683,6 +683,7 @@ def direct_download_batch(file:str):
         - False (Failed - either during download or registration / hashing)
     """
 
+    file = os.path.abspath(file)
     if not os.path.isfile(file):
         logging.error("File %s doesn't exist!", file)
         return False
@@ -1476,6 +1477,13 @@ def prepare_scheme_dst_data(url, is_subscription=False):
 
     return return_val
 
+################# Validation
+
+def validate(rehash=True):
+    """ This function itereates over all folders from the root directory (base path in db)
+        and checks
+    """
+
 ################# Helper
 
 def show_help():
@@ -1492,7 +1500,7 @@ def show_help():
     help_table.align['argument'] = "l"
     help_table.align['description'] = "l"
     help_table.add_row(['--Subscriptions--', '', ''])
-    help_table.add_row(['add-subscription', '<<url>>', 'Add a new subscription'])
+    help_table.add_row(['add-subscription', '<<url>> / batch <<file>>', 'Add a new subscription'])
     #Line Break for Pylint #C0301
     help_table.add_row(['del-subscription',
                         '<<number>> | <<Name>>, <<delete_content>>',
@@ -1533,7 +1541,7 @@ def show_help():
     help_table.add_row(['--Operation--', '', ''])
     #Line Break for Pylint #C0301
     help_table.add_row(['custom',
-                        '<<url>>',
+                        '<<url>> / batch <<file>>',
                         '''In case you want to download a video from a channel without
                         a subscription you can do it here...
                         The file will saved in the default scheme based folder under /custom'''])

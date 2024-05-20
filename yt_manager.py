@@ -27,8 +27,9 @@ import sys
 #import argparse
 
 # Own Modules
-from project_functions import (show_help, direct_download, scheme_setup,
-                               add_subscription, del_subscription, list_subscriptions,
+from project_functions import (show_help, direct_download, direct_download_batch,
+                               scheme_setup, add_subscription, add_subscription_batch,
+                               del_subscription, list_subscriptions,
                                start)
 from database_manager import check_db
 from config_handler import check_for_config
@@ -94,15 +95,18 @@ if len(sys.argv) > 1:
             sys.exit()
         case "add-subscription":
             #Add a new subscription
-            if len(sys.argv) > 2:
-                add_subscription(sys.argv[2])
+            if len(sys.argv) >= 4 and len(sys.argv) <= 5:
+                if str(sys.argv[2]).lower() != "batch":
+                    add_subscription(sys.argv[2])
+                else:
+                    add_subscription_batch(sys.argv[3])
             else:
                 logging.error("No url provided!")
                 show_help()
             sys.exit()
         case "del-subscription":
             #Delete a subscription
-            if len(sys.argv) > 2:
+            if len(sys.argv) == 3:
                 del_subscription(sys.argv[2])
             else:
                 logging.error("No url provided!")
@@ -110,7 +114,7 @@ if len(sys.argv) > 1:
             sys.exit()
         case "list-subscriptions":
             #Show all subscriptions
-            if len(sys.argv) > 2:
+            if len(sys.argv) == 3:
                 filter_list = list(sys.argv[2].split(","))
                 list_subscriptions(filter_list)
             else:
@@ -119,8 +123,11 @@ if len(sys.argv) > 1:
         case "custom":
             #Download a custom Item without being part of a subscription
             #parser = argparse
-            if len(sys.argv) > 2:
-                direct_download(sys.argv[2])
+            if len(sys.argv) >= 4 and len(sys.argv) <= 5:
+                if str(sys.argv[2]).lower() != "batch":
+                    direct_download(sys.argv[2])
+                else:
+                    direct_download_batch(sys.argv[3])
             else:
                 logging.error("No url provided!")
                 show_help()
@@ -130,7 +137,9 @@ if len(sys.argv) > 1:
             start()
             sys.exit()
         case "validate":
-            #Rehash all files and compare them to the already stored files.
+            #Rehash all files and compare them to the already stored files. And look for files not registered in the db
             sys.exit()
+        case _:
+            show_help()
 else:
     show_help()
