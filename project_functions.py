@@ -649,10 +649,11 @@ def fetch_subscription_name(url:str, scheme:json):
 ################# Download functions
 
 #This function is called from CLI
-def direct_download(url:str):
+def direct_download(url:str, own_file_data:dict=None):
     """ This function represents the "manual" video download approach
         You can pass an url and the file will be downlaoded, hashed and registered.
-
+        
+        The parameter "own_file_data" is from prepare_scheme_dst_data()!
         Return Values:bool
         - True (Successfully downloaded file and registered it in db)
         - False (Failed - either during download or registration / hashing)
@@ -661,7 +662,10 @@ def direct_download(url:str):
     logger.info("""Directly download content from %s -
                 Check prerequisites and prepare download data""", url)
 
-    prepared_data = prepare_scheme_dst_data(url)
+    if not own_file_data:
+        prepared_data = prepare_scheme_dst_data(url)
+    else:
+        prepared_data = own_file_data
 
 
     if prepared_data["status"] != 1:
@@ -746,11 +750,13 @@ def download_file(url, path):
         with YoutubeDL(ydl_opts) as ydl:
             value = ydl.download([url])
 
-        if value == 0:
+        #https://github.com/yt-dlp/yt-dlp/issues/4262
+        if value == 0 or value == 1 or value == 100:
             #Line Break for Pylint #C0301
             full_file_path = YoutubeDL(ydl_opts).prepare_filename(metadata,
                                                                   outtmpl=path +
                                                                   '/%(title)s.%(ext)s')
+
             full_file_path = os.path.abspath(full_file_path)
             return_val["status"] = True
             return_val["full_file_path"] = full_file_path
@@ -811,6 +817,13 @@ def download_missing():
             logger.error("Error while downloading content from %s! - Missing keys",
                          subscription[1])
             continue
+        
+        subscription_path = prepare_scheme_dst_data(subscription[2], True)
+
+        if not subscription_path["status"] or not subscription_path["dst_path"]:
+            logging.error("Error while deciding storage path for subscription %s!", 
+                          subscription[1])
+            continue
 
         for entry in metadata["entries"]:
             #Check each entry if it already exist before downloading,
@@ -828,33 +841,37 @@ def download_missing():
 
 
             #Fetch the metadata of the current entry to try to check for the filename
-            expected_path = decide_storage_path(entry["url"], entry_scheme["scheme"])
+            expected_path = subscription_path["dst_path"]
 
             if expected_path is None:
                 logger.error("Error while fetching expected path for %s - SKIP", entry["title"])
+                failed_downloads[subscription[1]].append(entry["title"])
                 continue
 
             file_metadata = get_metadata(entry["url"], get_ydl_opts(expected_path))
 
             if file_metadata is None:
                 logger.error("Error while fetching metadata! - Skip item %s", entry["title"])
+                failed_downloads[subscription[1]].append(entry["title"])
                 continue
 
-            expected_filename = get_expected_filename(file_metadata)
+            expected_filename = get_expected_filepath(file_metadata, expected_path)
 
-            if not expected_filename:
+            if not expected_filename["filename"]:
                 logger.error("Error while fetching filename for %s! - Skip item", entry["title"])
+                failed_downloads[subscription[1]].append(entry["title"])
                 continue
 
             #This bool is used to decide if the current entry will be downloaded
             download_file_now = True
 
             file_already_exist_in_db = fetch_value("items", [
-                {"file_name" : expected_filename},
+                {"file_name" : expected_filename["filename"]},
                 {"url": entry["url"]}],
                 ["id"])
 
-            if(file_already_exist_in_db is not None and
+            if(file_already_exist_in_db is not None and 
+               file_already_exist_in_db is not False and
                len(file_already_exist_in_db) > 0):
                 #Check if the file also exist on FS
                 logger.debug("""File %s already exist on db! -
@@ -868,28 +885,27 @@ def download_missing():
                                     ["option_value"], True)
 
                 if redownload_missing_files:
-                    expected_storage_path = decide_storage_path(entry["url"],
-                                                                entry_scheme["scheme"])
 
-                    if not expected_storage_path:
-                        #Since this error is not breaking we will try to downlaod the file
-                        #and check later again...
-                        logger.error("Cant fetch expected storage path!")
+                    expected_file_path = os.path.join(expected_path, expected_filename["filename"])
+                    file_already_exist_on_fs = os.path.isfile(expected_file_path)
+                    if not file_already_exist_on_fs:
+                        logger.info("""File %s already exists on db but not on your FS!
+                                    File will be redownloaded...""", entry["title"])
                     else:
-                        expected_file_path = os.path.join(expected_storage_path, expected_filename)
-                        file_already_exist_on_fs = os.path.isfile(expected_file_path)
-
-                        if not file_already_exist_on_fs:
-                            logger.info("""File %s already exists on db but not on your FS!
-                                        File will be redownloaded...""", entry["title"])
-                        else:
-                            logger.debug("File also exist on FS - SKIP")
-                            download_file_now = False
+                        logger.debug("File also exist on FS - SKIP")
+                        download_file_now = False
                 else:
                     #Since files should not be redownloaded we will assume that the file exist
                     #on FS.
                     download_file_now = False
             else:
+                if type(file_already_exist_in_db) == bool:
+                    logging.info(f"""The following data result in a bool: [
+                "file_name" : {expected_filename["filename"]},
+                "url": {entry["url"]}],""")
+                    exit()
+
+                print(file_already_exist_in_db)
                 logger.info("New file %s will be downloaded", entry["title"])
 
 
@@ -897,7 +913,7 @@ def download_missing():
             if not download_file_now:
                 continue
 
-            file_downloaded = direct_download(entry["url"])
+            file_downloaded = direct_download(entry["url"], subscription_path)
 
             if not file_downloaded:
                 #Append to the current subscription error log
@@ -918,6 +934,7 @@ def download_missing():
             error_table.align["title"] = "l"
             for error_entry in failed_downloads[subscription_err_entry]:
                 error_table.add_row([error_entry])
+            print(error_table)
     if not error_shown:
         logger.info("All Data are successfully downlaoded!")
         return True
@@ -1345,7 +1362,7 @@ def fetch_scheme_file_by_file(url):
             continue
     return return_val
 
-def prepare_scheme_dst_data(url):
+def prepare_scheme_dst_data(url, is_subscription=False):
     """
         This function prepares all data needed to download and save a file.
         It first checks if the fgiven url is aalive (reachable) and after that
@@ -1392,7 +1409,7 @@ def prepare_scheme_dst_data(url):
 
     #Scheme is valid. Decicde where to save the file (Check for categories). Read general config
     #and do the stuff...
-    dst_path = decide_storage_path(url, scheme["scheme"])
+    dst_path = decide_storage_path(url, scheme["scheme"], is_subscription)
     if not dst_path:
         logger.error("Error while defining storage path! - Check log")
         return return_val
@@ -1539,7 +1556,7 @@ def load_json_file(path:str):
         return None
     return json_file
 
-def decide_storage_path(url, scheme):
+def decide_storage_path(url, scheme, is_subscription=False):
     """
         This function is used as a helper to set the intended storage
         path for a specific file/url.
@@ -1573,8 +1590,15 @@ def decide_storage_path(url, scheme):
             logging.debug("Base path of scheme is: %s", base_path)
     else:
         #Line Break for Pylint #C0301
-        logger.warning("""Scheme does not provide it's own storage path! -
-                        Save data to the base directory""")
+        logger.warning("""Scheme %s does not provide it's own storage path! -
+                        Save data to the base directory""", scheme["schema_name"])
+    subscription_name = ""
+    if is_subscription:
+        subscription_name = fetch_subscription_name(url, scheme)
+
+        if subscription_name is None:
+            logging.error("Error while fetching subscription name!")
+            return None
 
     #Line Break for Pylint #C0301
     if ("categories" in scheme and "available" in scheme["categories"] and
@@ -1591,7 +1615,7 @@ def decide_storage_path(url, scheme):
             #Check if the given category is in the categories list
             if not category_name in scheme["categories"]["categories"]:
                 logger.error("Category %s is not defined!", category_name)
-                return False
+                return None
             #Line Break for Pylint #C0301
             logging.debug("""Provided category %s is known...
                           Check for custom storage path""", category_name)
@@ -1617,20 +1641,30 @@ def decide_storage_path(url, scheme):
             #Line Break for Pylint #C0301
             if ("category_storage" in scheme["storage"] and
                 scheme["storage"]["category_storage"] is False):
-                return base_path
+                if not is_subscription:
+                    return base_path
+                return os.path.join(base_path, subscription_name)
             category_dst_path =  inner_decide_path(base_path)
 
             if not category_dst_path:
                 return None
-            return category_dst_path
+            if not is_subscription:
+                return category_dst_path
+            return os.path.join(category_dst_path, subscription_name)
         #Line Break for Pylint #C0301
         if("category_storage" in scheme["storage"] and
            scheme["storage"]["category_storage"] is False):
             path_ext = inner_decide_path(base_path)
             if not path_ext:
-                return base_path
-            return path_ext
-    return base_path
+                if not is_subscription:
+                    return base_path
+                return os.path.join(base_path, subscription_name)
+            if not is_subscription:
+                return path_ext
+            return os.path.join(path_ext, subscription_name)
+    if not is_subscription:
+        return base_path
+    return os.path.join(base_path, subscription_name)
 
 def get_metadata(url, ydl_opts):
     """
@@ -1772,9 +1806,9 @@ def get_current_time():
                       pytz.all_timezones, user_tz)
         return -1
 
-def get_expected_filename(metadata:dict):
+def get_expected_filepath(metadata:dict, path:str):
     """
-        This function is a simple helper used to get the expected filename.
+        This function is a simple helper used to get the expected full file path.
         The project wide default scheme is <<title>>.<<ext>>.
 
         Return Values:str|None
@@ -1785,5 +1819,8 @@ def get_expected_filename(metadata:dict):
         logging.error("Metadata does not contain title or ext key!")
         return None
 
-    filename = metadata["title"] + "." + metadata["ext"]
-    return filename
+    filename = YoutubeDL(get_ydl_opts(path)).prepare_filename(metadata,
+                                                                  outtmpl=path +
+                                                              '/%(title)s.%(ext)s')
+    head, tail = os.path.split(filename)  
+    return {"filepath": head, "filename": tail}

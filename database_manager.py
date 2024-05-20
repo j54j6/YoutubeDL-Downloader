@@ -67,6 +67,9 @@ def check_db():
             #NEW SQLite Code
             try:
                 ENGINE = sqlite3.connect(db_path, check_same_thread=False)
+                encoding = ENGINE.cursor()
+                encoding.execute('pragma encoding=UTF8')
+                ENGINE.commit()
                 db_init = True
                 logger.debug("DB initializied!")
                 return True
@@ -103,6 +106,9 @@ def check_db():
             #return True
             try:
                 ENGINE = sqlite3.connect("file::memory:?cache=shared")
+                encoding = ENGINE.cursor()
+                encoding.execute('pragma encoding=UTF8')
+                ENGINE.commit()
                 db_init = True
                 return True
             except sqlite3.Error as e:
@@ -306,6 +312,7 @@ def fetch_value(table:str, conditions:dict|list=None, data_filter:dict|list = No
     #except Exception as e:
     #    logger.error(f"Error while executing Insert Statement! - Error: {e}")
     #    return False
+    values = []
     query = f"SELECT {query_filter} from {table} "
     #Create filter
     conditions_part = ""
@@ -313,14 +320,16 @@ def fetch_value(table:str, conditions:dict|list=None, data_filter:dict|list = No
         if isinstance(conditions, dict):
             query += " WHERE "
             for condition in conditions:
-                conditions_part += condition + f"=\"{conditions[condition]}\" AND "
+                conditions_part += condition + "= ? AND "
+                values.append(conditions[condition])
             conditions_part = conditions_part[:-5]
         elif isinstance(conditions, list):
             query += " WHERE "
             for condition_set in conditions:
                 #Iterate over all conditions
                 for condition in condition_set:
-                    conditions_part += condition + f"=\"{condition_set[condition]}\" AND "
+                    conditions_part += condition + "= ? AND "
+                    values.append(condition_set[condition])
                 conditions_part = conditions_part[:-5]
                 conditions_part += " OR "
             conditions_part = conditions_part[:-4]
@@ -334,10 +343,10 @@ def fetch_value(table:str, conditions:dict|list=None, data_filter:dict|list = No
     if extra_sql is not None:
         query = query + " " + extra_sql
 
-    logging.debug("Prepared Query: %s", query)
+    logging.debug("Prepared Query: %s \n data: %s", query, values)
     cursor = ENGINE.cursor()
     try:
-        data = cursor.execute(query)
+        data = cursor.execute(query, values)
         if not is_unique:
             return data.fetchall()
         return data.fetchone()
@@ -454,9 +463,9 @@ def insert_value(table:str, data:dict):
             value_placeholder += "?,"
         value_placeholder = value_placeholder[:-1]
         query = f"Insert into  {table} ({keys}) VALUES ({value_placeholder})"
+        logging.debug(query)
         cursor.execute(query, values)
         ENGINE.commit()
-
         #Maybe a check if all data are inserted will be added in the future
         #by adding a select statement (call fetch function)
         return True
