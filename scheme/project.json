@@ -15,7 +15,8 @@
             {"option_name": "use_tags_from_ydl", "option_value": "false"},
             {"option_name": "remove_file_on_post_process_error", "option_value": "false"},
             {"option_name": "last_full_check", "option_value": "NONE"},
-            {"option_name": "subscription_check_delay", "option_value": "24"}
+            {"option_name": "subscription_check_delay", "option_value": "24"},
+            {"option_name": "automatically_redownload_missing_files", "option_value": "true"}
         ]
     }
 }

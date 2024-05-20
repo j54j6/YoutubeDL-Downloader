@@ -268,7 +268,8 @@ def create_table(name:str, scheme:json):
         logger.error("Error while creating table %s Error: %s", name, e)
         return False
 
-def fetch_value(table:str, conditions:dict|list=None, data_filter:dict|list = None, is_unique=False, extra_sql=None):
+def fetch_value(table:str, conditions:dict|list=None, data_filter:dict|list = None,
+                is_unique=False, extra_sql=None):
     """ Fetch a value from a database based on a json filter {""} """
     if not db_init:
         init = check_db()
@@ -324,7 +325,8 @@ def fetch_value(table:str, conditions:dict|list=None, data_filter:dict|list = No
                 conditions_part += " OR "
             conditions_part = conditions_part[:-4]
         else:
-            logging.error("Unsupported type for conditions! - Conditions will be ignored! - Type: %s", type(conditions))
+            logging.error("""Unsupported type for conditions! -
+                          Conditions will be ignored! - Type: %s""", type(conditions))
 
 
     query = query + conditions_part
@@ -514,7 +516,7 @@ def update_value(table:str, data:dict, conditions:dict|list, extra_sql:str=None)
         - True -> Success
         - False -> Failed
     """
-    if not(check_table_exist(table)):
+    if not check_table_exist(table):
         logging.error("Table %s does not exist! - Can't update table...", table)
         return False
     values = []

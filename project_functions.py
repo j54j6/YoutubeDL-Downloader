@@ -293,6 +293,26 @@ def update_subscriptions():
             logger.error("Error while fetching actual metadata for subscription %s",
                          subscription[1])
 
+        #Check if subscription needs to be checked
+        check_interval = fetch_value("config",
+                                     {"option_name": "subscription_check_delay"},
+                                     ["option_value"], True)
+
+        if not check_interval:
+            logging.error("Error while fetching check interval value! - Continue")
+        else:
+            check_interval = check_interval[0]
+            last_checked = subscription[3]
+            current_time = get_current_time()
+
+            time_since_last_check = datetime.strptime(current_time, "%Y-%m-%d %H:%M:%S") - datetime.strptime(last_checked, "%Y-%m-%d %H:%M:%S")
+            hours_since_last_check = time_since_last_check.seconds/3600
+
+            if hours_since_last_check < int(check_interval):
+                logger.info("Subscription %s was checked %s hours ago. Skip",
+                            subscription[1], str(round(hours_since_last_check, 2)))
+                continue
+
         #Check for number of items
         if (current_obj["obj"]["subscription_content_count"] == subscription[5] and
         not subscription[4] != current_obj["obj"]["subscription_content_count"]):
@@ -360,6 +380,7 @@ def update_subscriptions():
     if error_during_process:
         logger.error("Please check messages abve!")
         return False
+    logging.info("All subscriptions updated!")
     return True
 
 ### Subscription helper
@@ -768,14 +789,22 @@ def download_missing():
     if not subscriptions:
         logger.error("Error while fetching subscriptions!")
         return False
-
+    failed_downloads = {}
     for subscription in subscriptions:
+        #Create a new error array for the current subscription
+        failed_downloads[subscription[1]] = []
         if subscription[5] == 0:
             logger.info("Subscription %s does not have any new data! - Skip", subscription[1])
             continue
         #Downlaod data
         logger.info("Download content from %s", subscription[1])
-        metadata = subscription[6]
+
+        #try to load the json metadata from db
+        try:
+            metadata = json.loads(subscription[6])
+        except json.JSONDecodeError:
+            logging.error("Error while decoding data from db for subscription %s", subscription[1])
+            continue
 
         #Iterate over all Videos from the playlist
         if not "entries" in metadata or not "playlist_count" in metadata:
@@ -786,14 +815,113 @@ def download_missing():
         for entry in metadata["entries"]:
             #Check each entry if it already exist before downloading,
             #using the title and the link
-            if not "title" in entry or "url" in entry:
+            if not "title" in entry or not "url" in entry:
                 logger.error("Entry misses needed keys! - SKIP")
                 continue
 
+            #To do all the work, the scheme is needed
+            entry_scheme = load_scheme(entry["url"])
 
-            file_already_exist = fetch_value("items", [
-                {"file"}
-            ])
+            if not entry_scheme["status"] or entry_scheme["scheme"] is None:
+                logger.error("Error while loading scheme for %s! - SKIP", entry["title"])
+                continue
+
+
+            #Fetch the metadata of the current entry to try to check for the filename
+            expected_path = decide_storage_path(entry["url"], entry_scheme["scheme"])
+
+            if expected_path is None:
+                logger.error("Error while fetching expected path for %s - SKIP", entry["title"])
+                continue
+
+            file_metadata = get_metadata(entry["url"], get_ydl_opts(expected_path))
+
+            if file_metadata is None:
+                logger.error("Error while fetching metadata! - Skip item %s", entry["title"])
+                continue
+
+            expected_filename = get_expected_filename(file_metadata)
+
+            if not expected_filename:
+                logger.error("Error while fetching filename for %s! - Skip item", entry["title"])
+                continue
+
+            #This bool is used to decide if the current entry will be downloaded
+            download_file_now = True
+
+            file_already_exist_in_db = fetch_value("items", [
+                {"file_name" : expected_filename},
+                {"url": entry["url"]}],
+                ["id"])
+
+            if(file_already_exist_in_db is not None and
+               len(file_already_exist_in_db) > 0):
+                #Check if the file also exist on FS
+                logger.debug("""File %s already exist on db! -
+                             Redownload is enabled check for File on FS...""", entry["title"])
+
+                #Check if missing files should be redownlaoded automatically. If so do it here...
+                # This function is also used in the check() function but only based on
+                # db entries!
+                redownload_missing_files = fetch_value_as_bool("config",
+                                    {"option_name": "automatically_redownload_missing_files"},
+                                    ["option_value"], True)
+
+                if redownload_missing_files:
+                    expected_storage_path = decide_storage_path(entry["url"],
+                                                                entry_scheme["scheme"])
+
+                    if not expected_storage_path:
+                        #Since this error is not breaking we will try to downlaod the file
+                        #and check later again...
+                        logger.error("Cant fetch expected storage path!")
+                    else:
+                        expected_file_path = os.path.join(expected_storage_path, expected_filename)
+                        file_already_exist_on_fs = os.path.isfile(expected_file_path)
+
+                        if not file_already_exist_on_fs:
+                            logger.info("""File %s already exists on db but not on your FS!
+                                        File will be redownloaded...""", entry["title"])
+                        else:
+                            logger.debug("File also exist on FS - SKIP")
+                            download_file_now = False
+                else:
+                    #Since files should not be redownloaded we will assume that the file exist
+                    #on FS.
+                    download_file_now = False
+            else:
+                logger.info("New file %s will be downloaded", entry["title"])
+
+
+            #If the file should not be downlaoded go to the next one
+            if not download_file_now:
+                continue
+
+            file_downloaded = direct_download(entry["url"])
+
+            if not file_downloaded:
+                #Append to the current subscription error log
+                failed_downloads[subscription[1]].append(entry["title"])
+                continue
+            logger.info("File %s successfully downloaded", entry["title"])
+    
+    #Iterate over the error object and create error message
+    error_shown = False
+    for subscription_err_entry in failed_downloads:
+        if len(failed_downloads[subscription_err_entry]) > 0:
+            error_shown = True
+            logger.error("Failed while downloading file for subscription %s", 
+                         subscription_err_entry)
+            logger.error("Subscription: %s", subscription_err_entry)
+            #Create a new error table
+            error_table = PrettyTable(['title'])
+            error_table.align["title"] = "l"
+            for error_entry in failed_downloads[subscription_err_entry]:
+                error_table.add_row([error_entry])
+    if not error_shown:
+        logger.info("All Data are successfully downlaoded!")
+        return True
+    return False
 
 ################# DB functions
 
@@ -1643,3 +1771,19 @@ def get_current_time():
                      You can choose between the following: %s - current: %s""",
                       pytz.all_timezones, user_tz)
         return -1
+
+def get_expected_filename(metadata:dict):
+    """
+        This function is a simple helper used to get the expected filename.
+        The project wide default scheme is <<title>>.<<ext>>.
+
+        Return Values:str|None
+        - None -> Failed to get filename
+        - str -> Filename
+    """
+    if not "title" in metadata or not "ext" in metadata:
+        logging.error("Metadata does not contain title or ext key!")
+        return None
+
+    filename = metadata["title"] + "." + metadata["ext"]
+    return filename

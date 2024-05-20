@@ -34,8 +34,8 @@ Supported values:
 
 
 # Currently Working
-- Downloading videos (Custom) => Single link
-- Register Video in db including tags and important information (also metadata for later use...)
+- Downloading videos => Single link and Subscription
+- Register Videos in DB
 - Register / Deleting / List Subscriptions
 
 # Currently supported Sites
@@ -45,12 +45,8 @@ Supported values:
 - YouTube
 
 # TODO
-- implementing db functions
-- implementing user interface/cli
-- implementing downloader
-- implementing scheme reader
-- creating requirements.txt
-- complete ReadME
+- better documentation / Code QUality fixes
+- FS Validator (To check for missing / corrupt files) and for simpler rebuild if data storage was broken
 
 # Postponed todos
 - Implementing support for both SQLite and MySQL
@@ -304,16 +300,9 @@ subscription_content_count => Shows the number of items in your subscription dur
 
 subscription_has_new_data => If the number btw. last check and new check is different this field is 1 else 0 (also after each cycle this ffield will be set to 0)
 
-current_subscription_data => metadata of the subscription. This field can be very very large depending on the channels where you subscribe. This field can blow up your db! - Contains the metadata from the last check
-
-last_subscription_data => same like current_subscription_data but from the time before...
-
-
+subscription_data => metadata of the subscription. This field can be very very large depending on the channels where you subscribe. This field can blow up your db!
 ```
 
-## Security Stuff (IMPORTANT!)
-
-- Currently this project is vulnerable for SQLInjections! - Please don't host this anywhere open accessible!
 ## Authors
 
 - [@j54j6](https://www.github.com/j54j6)
