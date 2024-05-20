@@ -32,7 +32,7 @@ ENGINE = None
 logger = logging.getLogger(__name__)
 
 def check_db():
-    """This function is used to initialize the database. 
+    """This function is used to initialize the database.
 
     Return Values:
         - True -> Success
@@ -156,11 +156,11 @@ def check_table_exist(table_name:str):
 
 def prepare_sql_create_statement(name, scheme):
     """ This function is used to create tables based on a defined json scheme.
-        Check documentation for help 
-        
+        Check documentation for help
+
         Return Values:
             - None -> Error
-            - SQL Statement     
+            - SQL Statement
     """
     query:str = f"CREATE TABLE {name} ("
     primary_key_defined = False
@@ -212,7 +212,7 @@ def prepare_sql_create_statement(name, scheme):
 
 def create_table(name:str, scheme:json):
     """This function can create a table bases on a defined JSON scheme
-    
+
         Return Values:bool
         - true -> Success
         - false -> Failed
@@ -375,7 +375,7 @@ def insert_value(table:str, data:dict):
     """Insert a value into a given table.
         Data are passed as JSON with the following format:
         {"column_name": value:str|dict|list}
-        
+
         Return Values:bool
         - True -> Success
         - False -> Failed
@@ -464,12 +464,12 @@ def insert_value(table:str, data:dict):
         return False
 
 def delete_value(table:str, conditions: dict|list):
-    """ Delete a value from db. Conditions are passed as json with columnname as key 
+    """ Delete a value from db. Conditions are passed as json with columnname as key
         and column value as value
 
         Return Values: bool
         - True -> Success
-        - False -> Failed    
+        - False -> Failed
     """
     logging.debug("Remove from table %s", table)
 
@@ -504,7 +504,7 @@ def delete_value(table:str, conditions: dict|list):
 
 def update_value(table:str, data:dict, conditions:dict|list, extra_sql:str=None):
     """ This function updates a table based on the passed data
-    
+
         all data are passed as a dict in the followiung scheme {"key_name": "key_value"}
         conditions can be passed as dict (one condition) (OR) or as a list of dict (AND)
         also in the scheme {"column_name": "desired_value"}. If you use multiple keys they are
@@ -541,7 +541,7 @@ def update_value(table:str, data:dict, conditions:dict|list, extra_sql:str=None)
             query += data_set + "= ?"
             values.append(data[data_set])
         else:
-            logger.info("Type %s is not supported by update()! - Ignore value %s...", 
+            logger.info("Type %s is not supported by update()! - Ignore value %s...",
                         type(data[data_set]), data_set)
             continue
         query += ", "
@@ -563,7 +563,7 @@ def update_value(table:str, data:dict, conditions:dict|list, extra_sql:str=None)
             conditions_part += " OR "
         conditions_part = conditions_part[:-4]
     else:
-        logging.error("Unsupported type for conditions! - Condition will be ignored! - Type: %s", 
+        logging.error("Unsupported type for conditions! - Condition will be ignored! - Type: %s",
                       type(conditions))
     query = query + conditions_part + ";"
     logger.debug("Prepared Query: %s ", query)
