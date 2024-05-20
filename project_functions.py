@@ -110,6 +110,31 @@ def add_subscription(url:str):
                 subscription_obj["obj"]["subscription_name"])
     return True
 
+def add_subscription_batch(file:str):
+    """ Add a subscription to the database using a file
+
+        Return Values:
+        - True: Success (Subscription successfully added to db)
+        - False: Failed (Error while adding subscription. Most likly Ytdlp or SQLite error)
+    """
+
+    if not os.path.isfile(file):
+        logging.error("File %s doesn't exist!", file)
+        return False
+
+    failed = False
+    with open(file, 'r', encoding="UTF-8") as input_file:
+        for line in input_file:
+            line = line.strip()
+            if not add_subscription(line):
+                failed = True
+
+    if not failed:
+        logging.info("All subscriptions successfully added")
+        return True
+    logging.error("Error while adding subscription batch!")
+    return False
+    
 def del_subscription(identifier:str):
     """ This function removes a passed subscription from the database
         (This function does NOT remove the files!)
@@ -648,11 +673,38 @@ def fetch_subscription_name(url:str, scheme:json):
 
 ################# Download functions
 
+def direct_download_batch(file:str):
+    """ This function represents the "manual" video download approach but using a batch file
+        You can pass an url and the file will be downlaoded, hashed and registered.
+
+        The parameter "own_file_data" is from prepare_scheme_dst_data()!
+        Return Values:bool
+        - True (Successfully downloaded file and registered it in db)
+        - False (Failed - either during download or registration / hashing)
+    """
+
+    if not os.path.isfile(file):
+        logging.error("File %s doesn't exist!", file)
+        return False
+
+    failed = False
+    with open(file, 'r', encoding="UTF-8") as input_file:
+        for line in input_file:
+            line = line.strip()
+            if not direct_download(line):
+                failed = True
+
+    if not failed:
+        logging.info("All files successfully downloaded")
+        return True
+    logging.error("Error while downloading batch!")
+    return False
+
 #This function is called from CLI
 def direct_download(url:str, own_file_data:dict=None):
     """ This function represents the "manual" video download approach
         You can pass an url and the file will be downlaoded, hashed and registered.
-        
+
         The parameter "own_file_data" is from prepare_scheme_dst_data()!
         Return Values:bool
         - True (Successfully downloaded file and registered it in db)
@@ -796,7 +848,9 @@ def download_missing():
         logger.error("Error while fetching subscriptions!")
         return False
     failed_downloads = {}
+    current_subscription = ""
     for subscription in subscriptions:
+        downloaded = 0
         #Create a new error array for the current subscription
         failed_downloads[subscription[1]] = []
         if subscription[5] == 0:
@@ -804,7 +858,7 @@ def download_missing():
             continue
         #Downlaod data
         logger.info("Download content from %s", subscription[1])
-
+        current_subscription = subscription[1]
         #try to load the json metadata from db
         try:
             metadata = json.loads(subscription[6])
@@ -817,11 +871,11 @@ def download_missing():
             logger.error("Error while downloading content from %s! - Missing keys",
                          subscription[1])
             continue
-        
+
         subscription_path = prepare_scheme_dst_data(subscription[2], True)
 
         if not subscription_path["status"] or not subscription_path["dst_path"]:
-            logging.error("Error while deciding storage path for subscription %s!", 
+            logging.error("Error while deciding storage path for subscription %s!",
                           subscription[1])
             continue
 
@@ -870,10 +924,11 @@ def download_missing():
                 {"url": entry["url"]}],
                 ["id"])
 
-            if(file_already_exist_in_db is not None and 
+            if(file_already_exist_in_db is not None and
                file_already_exist_in_db is not False and
                len(file_already_exist_in_db) > 0):
                 #Check if the file also exist on FS
+
                 logger.debug("""File %s already exist on db! -
                              Redownload is enabled check for File on FS...""", entry["title"])
 
@@ -897,15 +952,9 @@ def download_missing():
                 else:
                     #Since files should not be redownloaded we will assume that the file exist
                     #on FS.
+                    downloaded += 1
                     download_file_now = False
             else:
-                if type(file_already_exist_in_db) == bool:
-                    logging.info(f"""The following data result in a bool: [
-                "file_name" : {expected_filename["filename"]},
-                "url": {entry["url"]}],""")
-                    exit()
-
-                print(file_already_exist_in_db)
                 logger.info("New file %s will be downloaded", entry["title"])
 
 
@@ -920,13 +969,22 @@ def download_missing():
                 failed_downloads[subscription[1]].append(entry["title"])
                 continue
             logger.info("File %s successfully downloaded", entry["title"])
-    
+            downloaded += 1
+
+        #Modify the "downloaded_content_count" column in db
+        value_modified = update_value("subscriptions",
+                                      {"downloaded_content_count": str(downloaded)},
+                                      {"subscription_name" : str(current_subscription)})
+
+        if not value_modified:
+            logging.error("Error while modifing downlaoded content value")
+
     #Iterate over the error object and create error message
     error_shown = False
     for subscription_err_entry in failed_downloads:
         if len(failed_downloads[subscription_err_entry]) > 0:
             error_shown = True
-            logger.error("Failed while downloading file for subscription %s", 
+            logger.error("Failed while downloading file for subscription %s",
                          subscription_err_entry)
             logger.error("Subscription: %s", subscription_err_entry)
             #Create a new error table
@@ -1714,7 +1772,7 @@ def get_ydl_opts(path, addons:json=None):
                 'format': 'best',
                 'outtmpl': path + '/%(title)s.%(ext)s',
                 'nooverwrites': True,
-                'no_warnings': False,
+                'no_warnings': True,
                 'ignoreerrors': True,
                 'replace-in-metadata': True,
                 'restrict-filenames': True
@@ -1822,5 +1880,5 @@ def get_expected_filepath(metadata:dict, path:str):
     filename = YoutubeDL(get_ydl_opts(path)).prepare_filename(metadata,
                                                                   outtmpl=path +
                                                               '/%(title)s.%(ext)s')
-    head, tail = os.path.split(filename)  
+    head, tail = os.path.split(filename)
     return {"filepath": head, "filename": tail}

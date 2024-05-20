@@ -6,7 +6,7 @@
 
 
 
-# !!! BETA !!!
+# !!! STILL IN PROGRESS !!!
 # Show some love <3
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/j54j6)
 
@@ -34,9 +34,9 @@ Supported values:
 
 
 # Currently Working
-- Downloading videos => Single link and Subscription
+- Downloading videos => Subscriptions, direct and Batch
 - Register Videos in DB
-- Register / Deleting / List Subscriptions
+- Register (Single and Batch) / Deleting and List Subscriptions
 
 # Currently supported Sites
 - Pinterest
@@ -89,6 +89,11 @@ To add a subscription the overview url of the channel/playlist is needed. For ex
 ```
         yt_manager.py add-subscription https://www.youtube.com/@AlexiBexi/
 ```
+or if you want to add multiple
+```
+        yt_manager.py add-subscription <<Path to a file>>
+```
+The file is simply a list of links. Each link gets a new line (Enter Key)
 
 After the command is issued all metadata are downloaded and saved to db. 
 IMPORTANT: This feature might change in the future! -  If you use the downlaoded metadata be cautious!
@@ -123,7 +128,11 @@ Example use:
 ```
         yt_manager.py custom https://www.youtube.com/watch?v=gE_FuQuaKc0
 ```
-
+or if you want to download multiple links
+```
+        yt_manager.py custom <<Path to a file>>
+```
+The file is simply a list of links. Each link gets a new line (Enter Key)
 
 #Configuration
 
