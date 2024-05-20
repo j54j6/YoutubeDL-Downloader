@@ -84,7 +84,8 @@ def add_subscription(url:str):
                                     ], ["id", "scheme", "subscription_name"], True)
 
     if subscription_exist is not None:
-        logger.info("%s subscription for %s already exists!", subscription_exist[1], subscription_exist[2])
+        logger.info("%s subscription for %s already exists!",
+                    subscription_exist[1], subscription_exist[2])
         return True
 
     subscription_obj = get_subscription_data_obj(url)
@@ -95,19 +96,23 @@ def add_subscription(url:str):
 
     #Check if the formatted link is already in db - This is url should every time the same
     if subscription_obj["exist_in_db"]:
-        logger.info("%s subscription for %s already exists!", subscription_exist[1], subscription_exist[2])
+        logger.info("%s subscription for %s already exists!", subscription_exist[1],
+                        subscription_exist[2])
         return True
 
     added_subscr = insert_value("subscriptions", subscription_obj["obj"])
 
     if not added_subscr:
-        logger.error("Error while inserting subscription for %s into db! - Check log", subscription_obj["obj"]["subscription_name"])
+        logger.error("Error while inserting subscription for %s into db! - Check log",
+                     subscription_obj["obj"]["subscription_name"])
         return False
-    logger.info("Subscription for %s successfully created.", subscription_obj["obj"]["subscription_name"])
+    logger.info("Subscription for %s successfully created.",
+                subscription_obj["obj"]["subscription_name"])
     return True
 
 def del_subscription(identifier:str):
-    """ This function removes a passed subscription from the database (This function does NOT remove the files!)
+    """ This function removes a passed subscription from the database
+        (This function does NOT remove the files!)
 
         Return Values:
         - True: Success (Subscription successfully deleted from db)
@@ -116,8 +121,11 @@ def del_subscription(identifier:str):
     if validators.url(identifier):
         #Remove with url as ident
 
-        subscription_exist_1 = fetch_value("subscriptions", {"subscription_path": identifier}, ["id"], True)
-        subscription_exist_2 = fetch_value("subscriptions", {"passed_subscription_path": identifier}, ["id"], True)
+        subscription_exist_1 = fetch_value("subscriptions", {"subscription_path": identifier},
+                                           ["id"], True)
+        subscription_exist_2 = fetch_value("subscriptions",
+                                           {"passed_subscription_path": identifier},
+                                           ["id"], True)
 
         if subscription_exist_1 is None and subscription_exist_2 is None:
             logger.info("Subscription does not exist!")
@@ -127,7 +135,9 @@ def del_subscription(identifier:str):
             {"subscription_path": identifier},
             {"passed_subscription_path": identifier}])
     else:
-        subscription_exist = fetch_value("subscriptions", {"subscription_name": identifier}, ["id"], True)
+        subscription_exist = fetch_value("subscriptions",
+                                         {"subscription_name": identifier},
+                                         ["id"], True)
 
         if subscription_exist is None:
             logger.info("Subscription does not exist!")
@@ -185,7 +195,8 @@ def list_subscriptions(scheme_filter:list=None):
         logger.error("Error while fetching DB data!")
         return False
 
-    subscriptions_table = PrettyTable(['ID', 'Name', 'Scheme', 'Avail. Videos', 'Downloaded Videos', 'Last checked', 'url'])
+    subscriptions_table = PrettyTable(
+        ['ID', 'Name', 'Scheme', 'Avail. Videos', 'Downloaded Videos', 'Last checked', 'url'])
     subscriptions_table.align['ID'] = "c"
     subscriptions_table.align['Name'] = "l"
     subscriptions_table.align['Scheme'] = "l"
@@ -238,7 +249,8 @@ def list_subscriptions(scheme_filter:list=None):
     return True
 
 def update_subscriptions():
-    """ This function iterates over all subscriptions and update them. It will NOT download any files!
+    """ This function iterates over all subscriptions and update them.
+        It will NOT download any files!
 
         Return Values:
         - True: Success (All subscriptions updated)
@@ -278,10 +290,12 @@ def update_subscriptions():
         current_obj = get_subscription_data_obj(subscription[2])
 
         if not current_obj["status"]:
-            logger.error("Error while fetching actual metadata for subscription %s", subscription[1])
+            logger.error("Error while fetching actual metadata for subscription %s",
+                         subscription[1])
 
         #Check for number of items
-        if current_obj["obj"]["subscription_content_count"] == subscription[5] and not subscription[4] != current_obj["obj"]["subscription_content_count"]:
+        if (current_obj["obj"]["subscription_content_count"] == subscription[5] and
+        not subscription[4] != current_obj["obj"]["subscription_content_count"]):
             #No update avail - Modify subscription data and continue
 
             table_updates = update_value(
@@ -297,7 +311,10 @@ def update_subscriptions():
         elif current_obj["obj"]["subscription_content_count"] < subscription[5]:
             #Less avail than before - just send a message...
             faulty_subscriptions.append(subscription[1])
-            faulty_messages.append("Number of items is less than the last check! - Last time: %s, This time: %s", subscription[5], current_obj["obj"]["subscription_content_count"])
+            faulty_messages.append("""Number of items is less than the last check! -
+                                   Last time: %s, This time: %s""",
+                                   subscription[5],
+                                   current_obj["obj"]["subscription_content_count"])
 
             #Update table
             table_updates = update_value(
@@ -337,7 +354,8 @@ def update_subscriptions():
 
     if len(faulty_subscriptions) > 0:
         for index, subscription in enumerate(faulty_subscriptions):
-            logger.warning("Subscription %s exited with an error! - Message: %s", subscription, faulty_messages[index])
+            logger.warning("Subscription %s exited with an error! - Message: %s",
+                           subscription, faulty_messages[index])
 
     if error_during_process:
         logger.error("Please check messages abve!")
@@ -347,21 +365,26 @@ def update_subscriptions():
 ### Subscription helper
 
 def create_subscription_url(url:str, scheme:json):
-    """ This function creates the subscription url which will used to subscribe to a channel or anything else
+    """ This function creates the subscription url which will used to subscribe to a channel or
+        anything else
 
         Return Value:dict
         {
-            "status": False, -> Operation success or failed (probe this to check if operation successfull)
-            "subscribable": True, -> If status is false, it is possible that there was a video passed. If true -> Wrong url passed
+            "status": False, -> Operation success or failed (probe this to check if
+                                operation successfull)
+            "subscribable": True, -> If status is false, it is possible that there was a
+                                    video passed. If true -> Wrong url passed
             "scheme": None, -> Which scheme was used to create the url
             "tld": None, -> tld of the url (e.g. .com)
             "sld": None, -> sld of the url (e.g. reddit)
             "subd": None, -> subdomain of the url (e.g. www.) van be empty!
-            "subscription_name": None, -> The subscription name - most likly playlist name / channel name
+            "subscription_name": None, -> The subscription name - most likly playlist name /
+                                            channel name
             "category_avail": False, -> Are there categories availiable
             "category": None, -> If categories availiable -> Which category is the url
             "subscription_url": None, -> passed url from parameters
-            "formed_subscription_url": None -> function created subscription url to grttant uniform data
+            "formed_subscription_url": None -> function created subscription url to grttant
+                                            uniform data
         }
     """
     logging.debug("Create subscription url for url %s", url)
@@ -463,7 +486,8 @@ def create_subscription_url(url:str, scheme:json):
 
     logging.debug("All url data prepared. Create Link")
 
-    supported_keys = ["scheme", "subd", "sld", "tld", "category", "subscription_name", "subscription_url"]
+    supported_keys = ["scheme", "subd", "sld", "tld", "category",
+                      "subscription_name", "subscription_url"]
 
     for part in supported_keys:
         if return_val[part] is not None and return_val[part] is not False:
@@ -472,7 +496,8 @@ def create_subscription_url(url:str, scheme:json):
             url_blueprint = url_blueprint.replace(f"/{{{part}}}", "")
 
     if url_blueprint.find("{") != -1 or url_blueprint.find("}") != -1:
-        logger.error("Error while creating correct subscription url! - Not all placeholders were replaced! - Url: %s", url_blueprint)
+        logger.error("""Error while creating correct subscription url! -
+                     Not all placeholders were replaced! - Url: %s""", url_blueprint)
         return return_val
 
     logging.debug("Url successfully created")
@@ -481,7 +506,8 @@ def create_subscription_url(url:str, scheme:json):
     return return_val
 
 def get_subscription_data_obj(url:str):
-    """ Returns a dict containing all information about a subscription (db obj) and also if the url already exist in db
+    """ Returns a dict containing all information about a subscription (db obj) and
+        also if the url already exist in db
 
     Return Value: dict
         {
@@ -491,10 +517,12 @@ def get_subscription_data_obj(url:str):
                 "scheme": None, -> Which scheme is used
                 "subscription_name": None, -> friendly name - most likly playlist/channel name
                 "subscription_path": None, -> function created url to the website
-                "passed_subscription_path": url, -> url that was passed by the user to add the subscription. (not necessarily the same)
+                "passed_subscription_path": url, -> url that was passed by the user to add the
+                                                    subscription. (not necessarily the same)
                 "subscription_content_count": None, -> How many entries have the channel/playlist
                 "current_subscription_data": None, -> Current metadata object
-                "last_subscription_data": None -> Last metadata object (only used for stats if you want...)
+                "last_subscription_data": None -> Last metadata object
+                                                    (only used for stats if you want...)
             }
         }
     """
@@ -525,13 +553,16 @@ def get_subscription_data_obj(url:str):
 
     if not subscription_data["status"]:
         if subscription_data["subscribable"] is False:
-            logger.info("Can't add subscription - Scheme %s does not support subscriptions", data["scheme"]["schema_name"])
+            schema_name = data["scheme"]["scheme_name"]
+            logger.info("Can't add subscription - Scheme %s does not support subscriptions",
+                        schema_name)
             return subscription_entry
         logger.error("Error while fetching subscription data!")
         return subscription_entry
 
     metadata = get_metadata(subscription_data["formed_subscription_url"],
-                            get_ydl_opts(data["dst_path"], {'quiet': False, 'extract_flat': 'in_playlist'}))
+                            get_ydl_opts(data["dst_path"],
+                                         {'quiet': False, 'extract_flat': 'in_playlist'}))
 
     if not metadata:
         logger.error("Error while fetching metadata for subscription! - Please check the log.")
@@ -540,7 +571,8 @@ def get_subscription_data_obj(url:str):
     if("playlist_count" not in metadata or
        "entries" not in metadata or
        "_type" not in metadata):
-        logger.error("Fetched metadata does not contain all information needed! - Data: %s", metadata)
+        logger.error("Fetched metadata does not contain all information needed! - Data: %s",
+                     metadata)
         return subscription_entry
 
     obj = {}
@@ -566,10 +598,13 @@ def get_subscription_data_obj(url:str):
     return subscription_entry
 
 def fetch_subscription_name(url:str, scheme:json):
-    """ This function is a helper to extract the "target name" of your subscription. Most likly it is the channel name or playlist name.
+    """ This function is a helper to extract the "target name" of your subscription.
+        Most likly it is the channel name or playlist name.
 
-        The scheme is used to extract the name from the url. It is possible that this function will be changed in the future.
-        Some sites only have numeric values for the playlists/channels in the url. In this case YT DLP need to fetch it. But for now
+        The scheme is used to extract the name from the url.
+        It is possible that this function will be changed in the future.
+        Some sites only have numeric values for the playlists/channels in the url.
+        In this case YT DLP need to fetch it. But for now
         it works without it...
 
         Return Value:str
@@ -669,7 +704,8 @@ def download_file(url, path):
         Return Value:dict
         {
             "status": False, - Operation successfull? - Use it as probe!
-            "full_file_path": None, - The full file path to the file (absolute path) including the filename
+            "full_file_path": None, - The full file path to the file (absolute path)
+                                        including the filename
             "metadata": None - Metadata from the file
         }
     """
@@ -708,8 +744,10 @@ def download_file(url, path):
 
 def download_missing():
     """
-        This function iterates over all subscriptions and download missing videos (has_new_data = 1 or download count < plalist_content_count)
-        The function does NOT check for new Videos on the playlist. It utilizes the metadata column from the db! -
+        This function iterates over all subscriptions and download missing videos
+        (has_new_data = 1 or download count < plalist_content_count)
+        The function does NOT check for new Videos on the playlist.
+        It utilizes the metadata column from the db! -
         To fetch actual data the function update_subscriptions() should be called!
 
         Return Value: bool
@@ -741,11 +779,13 @@ def download_missing():
 
         #Iterate over all Videos from the playlist
         if not "entries" in metadata or not "playlist_count" in metadata:
-            logger.error("Error while downloading content from %s! - Missing keys", subscription[1])
+            logger.error("Error while downloading content from %s! - Missing keys",
+                         subscription[1])
             continue
 
         for entry in metadata["entries"]:
-            #Check each entry if it already exist before downloading, using the title and the link
+            #Check each entry if it already exist before downloading,
+            #using the title and the link
             if not "title" in entry or "url" in entry:
                 logger.error("Entry misses needed keys! - SKIP")
                 continue
@@ -875,7 +915,9 @@ def scheme_setup():
                             for option in scheme_data["db"]["rows"]:
                                 #Iterate over all default options and insert them to the config
                                 #table
-                                row_inserted = insert_value(scheme_data["db"]["table_name"], option)
+                                row_inserted = insert_value(
+                                    scheme_data["db"]["table_name"],
+                                    option)
                                 if not row_inserted:
                                     logger.error("Error while inserting row: %s!", option)
                                     continue
@@ -933,15 +975,19 @@ def load_scheme(url: str):
 
 def fetch_scheme_file(url:str):
     """
-        This function is used to fetch a matching scheme. There are in general 2 ways to fetch a scheme by an url.
-        The function first tries to fetch a schem,e by trying to match the sld (second level domain like "reddit")
+        This function is used to fetch a matching scheme.
+        There are in general 2 ways to fetch a scheme by an url.
+        The function first tries to fetch a schem,e by trying to match
+        the sld (second level domain like "reddit")
         with a scheme file name like "reddit.json".
-        If the function can't find any matching file it will iterate over all files and search for
+        If the function can't find any matching file,
+        it will iterate over all files and search for
         a scheme file where the url matches all conditions (subdomain, sld and tld).
 
         Return Value:dict
         {
-            "status": False,  -> Operation successfull? - True if scheme file found, False on error or no scheme file
+            "status": False,  -> Operation successfull? - True if scheme file found,
+                                False on error or no scheme file
             "scheme_path": None,  -> The absolute path to the scheme file
             "scheme_file": None -> The name of the file (e.g. reddit.json)
         }
@@ -1027,8 +1073,8 @@ def validate_url_scheme(scheme:json):
     """ This function is a helper for validate_scheme(). Every url scheme needs
         to have a defined set of keys. This function checks if every key exists.
 
-         It is likly that this function will change in the future since there is a python module called
-          json schemes which can do exactly this...
+         It is likly that this function will change in the future since
+         there is a python module called json schemes which can do exactly this...
 
           Since this is a helper for another function you should not use this!
           Return Values:
@@ -1105,7 +1151,9 @@ def validate_url_scheme(scheme:json):
     if("subscription" in scheme and
        "availiable" in scheme["subscription"]
        and scheme["subscription"]["availiable"] is True):
-        needed_subscription_scheme_keys = ["available", "subscription_name_locator", "url_blueprint"]
+        needed_subscription_scheme_keys = ["available",
+                                           "subscription_name_locator",
+                                           "url_blueprint"]
         all_keys_exist = True
 
         for required_key in needed_subscription_scheme_keys:
@@ -1121,8 +1169,10 @@ def validate_url_scheme(scheme:json):
     return True
 
 def fetch_scheme_file_by_file(url):
-    """ This function is a helper for fetch_scheme_file(). it iterates over all scheme files and try to find
-        a matching scheme by checking the conditions an url needs to meet. This function is used as a second step if
+    """ This function is a helper for fetch_scheme_file().
+        It iterates over all scheme files and try to find
+        a matching scheme by checking the conditions an url needs to meet.
+        This function is used as a second step if
         no filename matches the sld.
 
         Return Value: dict
@@ -1176,14 +1226,15 @@ def prepare_scheme_dst_data(url):
         Return Value: dict
 
         {
-            "status": 0, -> Possible values: int - 0 = Failed, 1 = Success, 2 = File already exist - use it as a probe!
+            "status": 0, -> Possible values: int - 0 = Failed, 1 = Success,
+                                                    2 = File already exist - use it as a probe!
             "scheme": None,  -> The scheme name (e.g. reddit.json)
             "scheme_path": None, -> The absolute path to the scheme
             "dst_path": None -> The absolute path where to sabve the file that will be downloaded
         }
     """
 
-    return_val = {"status": 0, "scheme": None, "scheme_path": None, "dst_path": None}
+    return_val = {"status": 0, "scheme": None|dict, "scheme_path": None, "dst_path": None}
     #Check if the url is reachable
     url_alive = alive_check(url)
     #Check if the given url already exists in the items db
@@ -1362,8 +1413,10 @@ def load_json_file(path:str):
 
 def decide_storage_path(url, scheme):
     """
-        This function is used as a helper to set the intended storage path for a specific file/url.
-        It uses the provided scheme to check if it defines any storage rules and add them to the final path.
+        This function is used as a helper to set the intended storage
+        path for a specific file/url.
+        It uses the provided scheme to check if it defines
+        any storage rules and add them to the final path.
 
         The path is absolute!
 
@@ -1372,9 +1425,12 @@ def decide_storage_path(url, scheme):
             - None -> No path could be set
     """
     #First fetch the base location...
-    data = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
+    data = fetch_value("config",
+                       {"option_name": "base_location"},
+                       ["option_value"], True)
     if not data:
-        logger.error("Error while fetching data from config db! - Please check log")
+        logger.error("""Error while fetching data from config db! -
+                     Please check log""")
         return None
     base_path = data[0]
     base_path = os.path.abspath(base_path)
@@ -1482,9 +1538,11 @@ def get_metadata(url, ydl_opts):
 
 def get_ydl_opts(path, addons:json=None):
     """
-        #The standards options for yt dlp. These can be modified if the parameter addons is passed.
+        #The standards options for yt dlp.
+        These can be modified if the parameter addons is passed.
         Also the rewrite of settings is possible.
-        For the save of functionality the outtmpl key can not be altered since other parts of the program
+        For the save of functionality the outtmpl key can not
+        be altered since other parts of the program
         rely on this!
 
         Return Value: dict
@@ -1509,11 +1567,11 @@ def get_ydl_opts(path, addons:json=None):
     return opts
 
 def create_hash_from_file(file):
-    """ 
+    """
         This function creates a hash from a given file.
 
         Return Value: dict
-        {   
+        {
             "status": False, -> Operation successfull? - Use it as probe
             "file": None,  -> Absolute file path
             "hash": None -> hash of the given file (The same value as passed)
@@ -1534,7 +1592,7 @@ def create_hash_from_file(file):
             while len(fb) > 0: # While there is still data being read from the file
                 hash_obj.update(fb) # Update the hash
                 fb = f.read(BUF_SIZE) # Read the next block from the file
-        return_val["file"] = file   
+        return_val["file"] = file
         return_val["hash"] = hash_obj.hexdigest()
         return_val["status"] = True
         return return_val
@@ -1581,5 +1639,7 @@ def get_current_time():
         current_time = datetime.now(timezone_data).strftime("%Y-%m-%d %H:%M:%S")
         return current_time
     except pytz.UnknownTimeZoneError:
-        logger.error("Timezone not known! - You can choose between the following: %s - current: %s", pytz.all_timezones, user_tz)
+        logger.error("""Timezone not known! -
+                     You can choose between the following: %s - current: %s""",
+                      pytz.all_timezones, user_tz)
         return -1
