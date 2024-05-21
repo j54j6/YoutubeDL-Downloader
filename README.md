@@ -6,7 +6,7 @@
 
 
 
-# !!! STILL IN PROGRESS !!!
+# !!! BETA !!!
 # Show some love <3
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/j54j6)
 
@@ -20,18 +20,13 @@
  To ensure compatibility for different sites I utilize multiple files called "schemes". Every supporterd site has its own scheme. Please feel free to built your own and send it to me :) - We can help each other with these. I am not capable of providing a scheme for each supported site ;)
  I provide some of them when requested if I have spare time.
 
- #Schemes
+ # Schemes
  Schemes are heavily used inside this project. They utilize different functions and can be used to dynamically change the behaviour of the program without any code knowledge.
  Schemas are used for 2 types
     1. Configuration -> It is possible to create database blueprints with schemas (like the project.json file used to create the main configuration and all default values). 
     2. Websites -> To ensure future compatibility all website specific stuff is located inside a scheme file per website. If anything changes on the website it should be possible to alter the file and make it work again (maybe due to a new header or something else...)
 
-Supported values:
-    Database Configuration:
-        If you want to create a table inside the main database you can utilize the "db" key. If defined the program will create a table with the given columns and if you want also default rows. 
-        For reference please check the project.json file as a reference :)
-    
-
+For Reference please look in the project.json section
 
 # Currently Working
 - Downloading videos => Subscriptions, direct and Batch
@@ -45,7 +40,7 @@ Supported values:
 - YouTube
 
 # TODO
-- better documentation / Code QUality fixes
+- better documentation / Code Quality fixes
 - FS Validator (To check for missing / corrupt files) and for simpler rebuild if data storage was broken
 
 # Postponed todos
@@ -65,7 +60,7 @@ Subscriptions are used to automatically download new content if needed (You need
 To list subscriptions the command above is used. An example Output is listed below.
 
 Options:
-    - FIlter (optional) -> A filter can be used to only return a specific subscriptiontype based on the scheme (for example "youtube".) The filter need to be passed as comma separated list. For example:
+    - Filter (optional) -> A filter can be used to only return a specific subscriptiontype based on the scheme (for example "youtube".) The filter need to be passed as comma separated list. For example:
 
 ```
         yt_manager.py list-Subscriptions youtube,reddit
@@ -91,7 +86,7 @@ To add a subscription the overview url of the channel/playlist is needed. For ex
 ```
 or if you want to add multiple
 ```
-        yt_manager.py add-subscription <<Path to a file>>
+        yt_manager.py add-subscription batch <<Path to a file>>
 ```
 The file is simply a list of links. Each link gets a new line (Enter Key)
 
@@ -120,7 +115,7 @@ or
 If you want to download only one Video you can also use the ```custom``` command. 
 This command will download only the link you provide. It must be a valid video link! -  This means if you paste it into your browser a video should start.
 
-Like in subscriptions the program will save this video in the db and if it detects changes (like corruption) through the ```check``` command, it will redownload the video. But also if you move it or delete it from the expected storage path.
+Like in subscriptions the program will save this video in the db and if it detects changes (like corruption) through the ```check``` command, it will redownload the video (if enabled). But also if you move it or delete it from the expected storage path.
 
 A batch mode is planned but not implemented yet!
 
@@ -130,16 +125,16 @@ Example use:
 ```
 or if you want to download multiple links
 ```
-        yt_manager.py custom <<Path to a file>>
+        yt_manager.py custom batch <<Path to a file>>
 ```
 The file is simply a list of links. Each link gets a new line (Enter Key)
 
-#Configuration
+# Configuration
 
 The configuration is done by different json files. These files contain default values and can be altered before the first run. After that only by CLI (not implemented yet) or by an SQLite Explorer.
 
 The configuration is splitted in multiple files
-##config.ini
+## config.ini
 This file is currently not heavily used. It contains only some database information since I want to make this project as portable as possible. It contains only the database information.
 ```
 [db]
