@@ -95,7 +95,7 @@ if len(sys.argv) > 1:
             sys.exit()
         case "add-subscription":
             #Add a new subscription
-            if len(sys.argv) >= 4 and len(sys.argv) <= 5:
+            if len(sys.argv) >= 3 and len(sys.argv) <= 5:
                 if str(sys.argv[2]).lower() != "batch":
                     add_subscription(sys.argv[2])
                 else:
