@@ -1484,6 +1484,28 @@ def validate(rehash=True):
         and checks
     """
 
+    #fetch base path
+    base_path = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
+
+    if not base_path:
+        logging.error("Error while fetching base path!")
+        return False
+    base_path = base_path[0]
+    
+    base_path = os.path.abspath(base_path)
+    current_scheme = None
+    for current_dir, current_dir_directories, current_dir_files in os.walk(base_path):
+        if not current_scheme is None:
+            print("Scheme: " + current_scheme)
+        else:
+            print("Scheme: Base")
+        for file in current_dir_files:
+            #Get the filepath of the current file
+            abs_file_path = os.path.join(current_dir, file)
+
+            print(abs_file_path)
+           
+
 ################# Helper
 
 def show_help():

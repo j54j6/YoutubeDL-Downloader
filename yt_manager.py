@@ -30,7 +30,7 @@ import sys
 from project_functions import (show_help, direct_download, direct_download_batch,
                                scheme_setup, add_subscription, add_subscription_batch,
                                del_subscription, list_subscriptions,
-                               start)
+                               start, validate)
 from database_manager import check_db
 from config_handler import check_for_config
 
@@ -123,7 +123,7 @@ if len(sys.argv) > 1:
         case "custom":
             #Download a custom Item without being part of a subscription
             #parser = argparse
-            if len(sys.argv) >= 4 and len(sys.argv) <= 5:
+            if len(sys.argv) >= 3 and len(sys.argv) <= 4:
                 if str(sys.argv[2]).lower() != "batch":
                     direct_download(sys.argv[2])
                 else:
@@ -138,6 +138,7 @@ if len(sys.argv) > 1:
             sys.exit()
         case "validate":
             #Rehash all files and compare them to the already stored files. And look for files not registered in the db
+            validate()
             sys.exit()
         case _:
             show_help()
