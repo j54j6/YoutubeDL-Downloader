@@ -20,7 +20,6 @@
 #
 """
 
-
 # Python Modules
 import logging
 import sys
@@ -29,10 +28,13 @@ import sys
 # Own Modules
 from project_functions import (show_help, direct_download, direct_download_batch,
                                scheme_setup, add_subscription, add_subscription_batch,
-                               del_subscription, list_subscriptions,
-                               start, validate)
+                               del_subscription, list_subscriptions, export_subscriptions,
+                               import_subscriptions, start, validate)
 from database_manager import check_db
 from config_handler import check_for_config
+
+#Version
+CURRENT_VERSION = 20240604
 
 
 # Init. Logging
@@ -140,6 +142,15 @@ if len(sys.argv) > 1:
             #Rehash all files and compare them to the already stored files. And look for files not registered in the db
             validate()
             sys.exit()
+        case "export-subscriptions":
+            export_subscriptions()
+            sys.exit()
+        case "import-subscriptions":
+            if sys.argv[2] is not None:
+                import_subscriptions(sys.argv[2])
+            else:
+                logging.error("Please provide a path to import subscriptions")
+                show_help()
         case _:
             show_help()
 else:

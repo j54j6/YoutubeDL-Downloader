@@ -68,7 +68,7 @@ def start():
 
 ################# Subscription related
 
-def add_subscription(url:str):
+def add_subscription(url:str, downloaded:int = None, last_checked = None, meta_data = None):
     """ Add a subscription to the database
 
         Return Values:
@@ -88,7 +88,7 @@ def add_subscription(url:str):
                     subscription_exist[1], subscription_exist[2])
         return True
 
-    subscription_obj = get_subscription_data_obj(url)
+    subscription_obj = get_subscription_data_obj(url, downloaded, last_checked, meta_data)
 
     if not subscription_obj["status"]:
         logger.error("Error while creating subscription obj!")
@@ -119,7 +119,7 @@ def add_subscription_batch(file:str):
     """
     file = os.path.abspath(file)
     if not os.path.isfile(file):
-        logging.error("File %s doesn't exist!", file)
+        logger.error("File %s doesn't exist!", file)
         return False
 
     failed = False
@@ -130,9 +130,9 @@ def add_subscription_batch(file:str):
                 failed = True
 
     if not failed:
-        logging.info("All subscriptions successfully added")
+        logger.info("All subscriptions successfully added")
         return True
-    logging.error("Error while adding subscription batch!")
+    logger.error("Error while adding subscription batch!")
     return False
     
 def del_subscription(identifier:str):
@@ -184,7 +184,7 @@ def list_subscriptions(scheme_filter:list=None):
         - False: Failed (Failed to fetch all data needed to build table. Most likly SQL Error)
     """
     if scheme_filter is None:
-        logging.debug("List all subscriptions")
+        logger.debug("List all subscriptions")
         #List all subscriptions
         subscriptions = fetch_value("subscriptions",
                                     None,
@@ -199,7 +199,7 @@ def list_subscriptions(scheme_filter:list=None):
                                     ], extra_sql="ORDER BY scheme")
 
     else:
-        logging.debug("List subscriptions with Filter")
+        logger.debug("List subscriptions with Filter")
         conditions = []
         for condition in scheme_filter:
             conditions.append({"scheme": condition})
@@ -324,7 +324,7 @@ def update_subscriptions():
                                      ["option_value"], True)
 
         if not check_interval:
-            logging.error("Error while fetching check interval value! - Continue")
+            logger.error("Error while fetching check interval value! - Continue")
         else:
             check_interval = check_interval[0]
             last_checked = subscription[3]
@@ -405,9 +405,97 @@ def update_subscriptions():
     if error_during_process:
         logger.error("Please check messages abve!")
         return False
-    logging.info("All subscriptions updated!")
+    logger.info("All subscriptions updated!")
     return True
 
+def export_subscriptions():
+    "This functions exports all subscriptions saved in the db"
+
+    subscriptions = fetch_value("subscriptions", None, ["subscription_path", 
+                                                        "subscription_last_checked", 
+                                                        "downloaded_content_count", 
+                                                        "last_subscription_data",
+                                                        "subscription_name"])
+
+    if subscriptions is None:
+        logging.error("Error while fetching subscriptions")
+    
+    exported_subscriptions:list = []
+    for subscription in subscriptions:
+        subscription_obj = {
+            "subscription_path": subscription[0],
+            "subscription_last_checked": subscription[1],
+            "downloaded_content_count": subscription[2],
+            "last_subscription_data": subscription[3],
+            "subscription_name": subscription[4]
+        }
+        exported_subscriptions.append(subscription_obj)
+    base_path = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
+
+    if not base_path or not isinstance(base_path, tuple):
+        logging.error("Error while fetching base path from config! - Use default (Partent directory)")
+        base_path = "./"
+    else:
+        base_path = base_path[0]
+
+    logging.info("Exported %i subscriptions. Create file at %s", len(exported_subscriptions), os.path.abspath(base_path))
+
+    #Insert list into file.
+    
+    try:
+        with open(os.path.join(os.path.abspath(base_path), 
+                               "subscriptions_export.json"), 
+                               encoding="UTF-8", 
+                               mode="w+") as subscription_file:
+            subscriptions_as_json = json.dumps(exported_subscriptions)
+            subscription_file.write(subscriptions_as_json)
+        logging.info("Subscriptions exported")
+    except FileNotFoundError as e:
+        logging.error("Error while creating file! - Error: %s", e)
+        return False
+    except json.JSONDecodeError as e:
+        logging.error("Error while parsing JSON array with subscriptions! - Error: %s", e)
+        return False
+    return True
+
+def import_subscriptions(path="./"):
+    """ This function imports subscriptions based on a json file (generated by export_subscriptions function)"""
+    logging.info("Import subscriptions from %s", path)
+
+    if not os.path.exists(path):
+        logging.error("The given path does not exist!")
+        return False
+    
+    try:
+        with open(os.path.abspath(path), encoding="UTF-8", mode="r") as f:
+            subscriptions = f.read()
+
+        subscriptions = json.loads(subscriptions)
+        #Iterate over json array
+        error_raised = False
+        failed_imports = []
+        for subscription in subscriptions:
+            success = add_subscription(subscription["subscription_path"],
+                                       subscription["downloaded_content_count"],
+                                       subscription["subscription_last_checked"],
+                                       subscription["last_subscription_data"])
+            if not success:
+                error_raised = True
+                failed_imports.append(subscription["subscription_name"])
+        
+        if error_raised:
+            for failed_import in failed_imports:
+                logging.error("Error while importing %s to db!", failed_import)
+            return False
+        logging.info("All subscriptions successfully imported!")
+        return True
+    except FileNotFoundError as e:
+        logging.error("Subscriptiuon file not found! - Error: %s", e)
+        return False
+    except json.JSONDecodeError as e:
+        logging.error("Error while loading JSON File! - Error: %s", e)
+        return False
+    return True
 ### Subscription helper
 
 def create_subscription_url(url:str, scheme:json):
@@ -433,7 +521,7 @@ def create_subscription_url(url:str, scheme:json):
                                             uniform data
         }
     """
-    logging.debug("Create subscription url for url %s", url)
+    logger.debug("Create subscription url for url %s", url)
     return_val = {
         "status": False,
         "subscribable": True,
@@ -470,42 +558,42 @@ def create_subscription_url(url:str, scheme:json):
     parsed_url_parts = urlparse.urlparse(url)
 
     if parsed_url_parts.scheme is not None:
-        logging.debug("Key scheme is in parsed urls")
+        logger.debug("Key scheme is in parsed urls")
         if "{scheme}" in blueprint_data:
-            logging.debug("Key scheme is in the blueprint subscription link. Add it...")
+            logger.debug("Key scheme is in the blueprint subscription link. Add it...")
             return_val["scheme"] = parsed_url_parts.scheme
 
     if tld_url_parts.subdomain is not None:
-        logging.debug("Key subdomain is in parsed urls")
+        logger.debug("Key subdomain is in parsed urls")
         if "{subd}" in blueprint_data:
-            logging.debug("Key subd is in the blueprint subscription link. Add it...")
+            logger.debug("Key subd is in the blueprint subscription link. Add it...")
             return_val["subd"] = tld_url_parts.subdomain
 
     if tld_url_parts.domain is not None:
-        logging.debug("Key domain is in parsed urls")
+        logger.debug("Key domain is in parsed urls")
         if "{sld}" in blueprint_data:
-            logging.debug("Key sld is in the blueprint subscription link. Add it...")
+            logger.debug("Key sld is in the blueprint subscription link. Add it...")
             return_val["sld"] = tld_url_parts.domain
 
     if tld_url_parts.suffix is not None:
-        logging.debug("Key suffix is in parsed urls")
+        logger.debug("Key suffix is in parsed urls")
         if "{tld}" in blueprint_data:
-            logging.debug("Key tld is in the blueprint subscription link. Add it...")
+            logger.debug("Key tld is in the blueprint subscription link. Add it...")
             return_val["tld"] = tld_url_parts.suffix
 
     #Check if the scheme supports categories
     if("categories" in scheme and
        "available" in scheme["categories"] and
        scheme["categories"]["available"] is True):
-        logging.debug("Categories are available. Fetch data...")
+        logger.debug("Categories are available. Fetch data...")
         #extract the category from the url
         category = fetch_category_name(url, scheme)
 
         #Check if a category was fetched
         if category is not None:
-            logging.debug("Category found")
+            logger.debug("Category found")
             if "{category}" in blueprint_data:
-                logging.debug("Key category is in the blueprint subscription link. Add it...")
+                logger.debug("Key category is in the blueprint subscription link. Add it...")
                 return_val["category_avail"] = True
                 return_val["category"] = category
 
@@ -515,11 +603,11 @@ def create_subscription_url(url:str, scheme:json):
         logger.error("Can't fetch subscription name! - Maybe you cannot subscribe to the url?")
         return return_val
     if "{subscription_name}" in blueprint_data:
-        logging.debug("Key subscription_name is in the blueprint subscription link. Add it...")
+        logger.debug("Key subscription_name is in the blueprint subscription link. Add it...")
         return_val["subscription_name"] = subscription_name
 
     if "{subscription_url}" in blueprint_data:
-        logging.debug("Key subscription_url is in the blueprint subscription link. Add it...")
+        logger.debug("Key subscription_url is in the blueprint subscription link. Add it...")
         if(return_val["category_avail"] and
            category in scheme["categories"]["categories"] and
            "subscription_url" in scheme["categories"]["categories"][category]):
@@ -527,10 +615,10 @@ def create_subscription_url(url:str, scheme:json):
             if(scheme["categories"]["categories"][category]["subscription_url"] is not False and
                scheme["categories"]["categories"][category]["subscription_url"] is not None and
                scheme["categories"]["categories"][category]["subscription_url"] != ""):
-                logging.debug("Subscription url added...")
+                logger.debug("Subscription url added...")
                 return_val["subscription_url"] = scheme["categories"]["categories"][category]["subscription_url"]
 
-    logging.debug("All url data prepared. Create Link")
+    logger.debug("All url data prepared. Create Link")
 
     supported_keys = ["scheme", "subd", "sld", "tld", "category",
                       "subscription_name", "subscription_url"]
@@ -546,12 +634,12 @@ def create_subscription_url(url:str, scheme:json):
                      Not all placeholders were replaced! - Url: %s""", url_blueprint)
         return return_val
 
-    logging.debug("Url successfully created")
+    logger.debug("Url successfully created")
     return_val["formed_subscription_url"] = url_blueprint
     return_val["status"] = True
     return return_val
 
-def get_subscription_data_obj(url:str):
+def get_subscription_data_obj(url:str, downloaded = None, last_checked=None, last_metadata=None):
     """ Returns a dict containing all information about a subscription (db obj) and
         also if the url already exist in db
 
@@ -584,7 +672,8 @@ def get_subscription_data_obj(url:str):
             "passed_subscription_path": url,
             "subscription_content_count": None,
             "current_subscription_data": None,
-            "last_subscription_data": None
+            "last_subscription_data": None,
+            "downloaded_content_count": None
         }
 
 
@@ -629,6 +718,14 @@ def get_subscription_data_obj(url:str):
     obj["subscription_content_count"] = metadata["playlist_count"]
     obj["current_subscription_data"] = metadata
 
+    if downloaded is not None and downloaded > 0:
+        obj["downloaded_content_count"] = downloaded
+    if last_checked is not None:
+        obj["subscription_last_checked"] = last_checked
+    if last_metadata is not None:
+        obj["last_subscription_data"] = last_metadata
+
+
     subscription_entry["obj"] = obj
 
     entry_in_db = fetch_value("subscriptions",
@@ -657,7 +754,7 @@ def fetch_subscription_name(url:str, scheme:json):
         - None -> Nothing found (empty)
         - Subscription name string e.g j54j6
     """
-    logging.debug("Fetch subscription name for url %s", url)
+    logger.debug("Fetch subscription name for url %s", url)
     if "subscription" in scheme:
         subscription_path = scheme["subscription"]["subscription_name_locator"]
     else:
@@ -685,7 +782,7 @@ def direct_download_batch(file:str):
 
     file = os.path.abspath(file)
     if not os.path.isfile(file):
-        logging.error("File %s doesn't exist!", file)
+        logger.error("File %s doesn't exist!", file)
         return False
 
     failed = False
@@ -696,9 +793,9 @@ def direct_download_batch(file:str):
                 failed = True
 
     if not failed:
-        logging.info("All files successfully downloaded")
+        logger.info("All files successfully downloaded")
         return True
-    logging.error("Error while downloading batch!")
+    logger.error("Error while downloading batch!")
     return False
 
 #This function is called from CLI
@@ -864,7 +961,7 @@ def download_missing():
         try:
             metadata = json.loads(subscription[6])
         except json.JSONDecodeError:
-            logging.error("Error while decoding data from db for subscription %s", subscription[1])
+            logger.error("Error while decoding data from db for subscription %s", subscription[1])
             continue
 
         #Iterate over all Videos from the playlist
@@ -876,7 +973,7 @@ def download_missing():
         subscription_path = prepare_scheme_dst_data(subscription[2], True)
 
         if not subscription_path["status"] or not subscription_path["dst_path"]:
-            logging.error("Error while deciding storage path for subscription %s!",
+            logger.error("Error while deciding storage path for subscription %s!",
                           subscription[1])
             continue
 
@@ -978,7 +1075,7 @@ def download_missing():
                                       {"subscription_name" : str(current_subscription)})
 
         if not value_modified:
-            logging.error("Error while modifing downlaoded content value")
+            logger.error("Error while modifing downlaoded content value")
 
     #Iterate over the error object and create error message
     error_shown = False
@@ -1014,7 +1111,7 @@ def save_file_to_db(scheme_data, full_file_path, file_hash, url, metadata):
     scheme_path = scheme_data["scheme_path"]
 
     head, tail = os.path.split(full_file_path)
-    logging.debug("Scheme Data: %s", scheme_path)
+    logger.debug("Scheme Data: %s", scheme_path)
     #Line Break for Pylint #C0301
     use_tags_ydl = fetch_value_as_bool("config", {"option_name": "use_tags_from_ydl"},
                                        ["option_value"], True)
@@ -1030,12 +1127,12 @@ def save_file_to_db(scheme_data, full_file_path, file_hash, url, metadata):
     if use_tags_ydl:
         logger.info("Also insert tags from ydl metadata")
         if "tags" in metadata:
-            logging.debug("Found key 'tags'")
+            logger.debug("Found key 'tags'")
             if len(metadata["tags"]) > 0:
-                logging.debug("Tags found...")
+                logger.debug("Tags found...")
                 video_data["tags"] = metadata["tags"]
             else:
-                logging.debug("Tags array is empty!")
+                logger.debug("Tags array is empty!")
         else:
             logger.debug("No tags key found in metadata")
     else:
@@ -1127,13 +1224,13 @@ def scheme_setup():
                                     continue
                                 logger.debug("Row inserted")
                         else:
-                            logging.debug("There are no default rows in scheme %s", scheme)
+                            logger.debug("There are no default rows in scheme %s", scheme)
                             continue
                 else:
-                    logging.debug("Scheme %s does not need a table - SKIP", scheme)
+                    logger.debug("Scheme %s does not need a table - SKIP", scheme)
                     continue
             else:
-                logging.debug("Scheme %s does not contain a db key - SKIP", scheme)
+                logger.debug("Scheme %s does not contain a db key - SKIP", scheme)
                 continue
         except json.JSONDecodeError as e:
             logger.error("Error while initializing scheme %s! - JSON Error: %s", scheme, e)
@@ -1217,8 +1314,8 @@ def fetch_scheme_file(url:str):
             return return_val
 
         return scheme_check
-    logging.debug("Scheme file for %s found", parsed_url.domain)
-    logging.debug("Check if provided url %s is valid for scheme", parsed_url.domain)
+    logger.debug("Scheme file for %s found", parsed_url.domain)
+    logger.debug("Check if provided url %s is valid for scheme", parsed_url.domain)
     return_val["scheme_path"] = expected_scheme_path
     return_val["scheme_file"] = str(parsed_url.domain + ".json")
     return_val["status"] = True
@@ -1488,25 +1585,118 @@ def validate(rehash=True):
     base_path = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
 
     if not base_path:
-        logging.error("Error while fetching base path!")
+        logger.error("Error while fetching base path!")
         return False
     base_path = base_path[0]
     
     base_path = os.path.abspath(base_path)
-    current_scheme = None
+
+    error_happened = False
+    error_files = []
+    error_messages = []
     for current_dir, current_dir_directories, current_dir_files in os.walk(base_path):
-        if not current_scheme is None:
-            print("Scheme: " + current_scheme)
-        else:
-            print("Scheme: Base")
         for file in current_dir_files:
             #Get the filepath of the current file
             abs_file_path = os.path.join(current_dir, file)
 
-            print(abs_file_path)
-           
+            path_data = fetch_path_data(abs_file_path)
+            
+            if not path_data["status"]:
+                logger.error("Error while fetching path data for path %s", abs_file_path)
+                error_happened = True
+                error_files.append(abs_file_path)
+                error_messages.append("Error while fetching Path Data!")
+                continue
+            
+            if path_data["schema_name"] is None or path_data["schema_name"] == "custom":
+                logger.warning("File %s can not be tested! - Schema \"%s\" is not valid", path_data["filename"], path_data["schema_name"])
+                continue
+
+            #Check if Video is in DB
+            file_in_db = fetch_value("items", {"file_name": path_data["filename"]}, ["file_name", "scheme", "file_hash", "locked"])
+
+            if file_in_db is None:
+                #Add file to db
+                file_hash = create_hash_from_file(abs_file_path)
+                save_file_to_db()
+                if not file_hash["status"]:
+                    logger.error("Error while hashing file! - Can't add file to db!")
+                    error_happened = True
+                    error_files.append(abs_file_path)
+                    error_messages.append("Error while creating hash for file!")
+                    continue
+
+                #File hash created add other stuff
+
+
+                
 
 ################# Helper
+def fetch_path_data(path):
+    '''
+        This file returns the expected file scheme based on a defined rule set and the strict defined path syntax from this project.
+
+        Expcected Syntax:
+
+        <<base path>>/<<scheme_name>>/<<files / category>>/<<files - only category>>
+
+        Return Value:
+            {
+                "status": False, -> Operation successfull? - Use it as probe!
+                "schema_name": None,  -> Extracted / Assumed scheme name (could be empty) - but only for files in base bath 
+                "subscription": None, -> Extracted / Assumed subscription name (could be empty)
+                "category": None,  -> Extracted / Assumed category (could be empty)
+                "filename": None -> Extracted file name
+            }
+    '''
+    return_val = {"status": False, "schema_name": None, "subscription": None, "category": None, "filename": None}
+
+    base_path = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
+
+    if not base_path:
+        logger.error("Error while fetching base path!")
+        return return_val
+    
+    base_path = base_path[0]
+    base_path = os.path.abspath(base_path)
+
+    if not base_path in path:
+        logger.error("Can't find basepath in passed path! - Unexpected event")
+        return return_val
+    
+    #Remove the base path from the file path and strip the leading / or \ with os.sep => Separator for FS...
+    prepare_path = str(path).replace(base_path, "").strip(os.sep)
+    prepare_path = prepare_path.split(os.path.sep)
+    
+    #4 possible outcomes => 
+    #   Array len = 1 -> Only File, File is in base path?
+    #   Array len = 2 -> Only Scheme and file -> Scheme dont support categories or subscriptions (e.g. custom)
+    #   Array len = 3 -> There is no category
+    #   Array len = 4 -> Category exist
+
+    if len(prepare_path) == 1:
+        return_val["filename"] = prepare_path[0]
+    elif len(prepare_path) == 2:
+        return_val["schema_name"] = prepare_path[0]
+        return_val["filename"] = prepare_path[1]
+    elif len(prepare_path) == 3:
+        return_val["schema_name"] = prepare_path[0]
+        return_val["subscription"] = prepare_path[1]
+        return_val["filename"] = prepare_path[2]
+    elif len(prepare_path) == 4:
+        return_val["schema_name"] = prepare_path[0]
+        return_val["subscription"] = prepare_path[1]
+        return_val["category"] = prepare_path[2]
+        return_val["filename"] = prepare_path[3]
+    else:
+        logger.error("Unexcepted array length! - Please open an issue on Github and pass the folowwing output:")
+        print("Passed Path: " + str(path))
+        print("Array: " + str(prepare_path))
+        exit()
+
+    return_val["status"] = True
+    return return_val
+
 
 def show_help():
     """
@@ -1609,7 +1799,7 @@ def fetch_category_name(url:str, scheme:json):
         - None -> No category found
 
     """
-    logging.debug("Fetch category for url %s", url)
+    logger.debug("Fetch category for url %s", url)
     if "category_path" in scheme["categories"]:
         category_path = scheme["categories"]["category_path"]
     else:
@@ -1619,7 +1809,7 @@ def fetch_category_name(url:str, scheme:json):
         parsed_url = urlparse.urlparse(url)
         category = parsed_url.path.split('/')[category_path]
     except IndexError:
-        logging.error("No category found at index %s", category_path)
+        logger.error("No category found at index %s", category_path)
         return None
     return category
 
@@ -1675,7 +1865,7 @@ def decide_storage_path(url, scheme, is_subscription=False):
                           not defined as key! - Ignore it and use base path from general config""")
         else:
             base_path = os.path.join(base_path, scheme["storage"]["base_path"])
-            logging.debug("Base path of scheme is: %s", base_path)
+            logger.debug("Base path of scheme is: %s", base_path)
     else:
         #Line Break for Pylint #C0301
         logger.warning("""Scheme %s does not provide it's own storage path! -
@@ -1685,7 +1875,7 @@ def decide_storage_path(url, scheme, is_subscription=False):
         subscription_name = fetch_subscription_name(url, scheme)
 
         if subscription_name is None:
-            logging.error("Error while fetching subscription name!")
+            logger.error("Error while fetching subscription name!")
             return None
 
     #Line Break for Pylint #C0301
@@ -1705,14 +1895,14 @@ def decide_storage_path(url, scheme, is_subscription=False):
                 logger.error("Category %s is not defined!", category_name)
                 return None
             #Line Break for Pylint #C0301
-            logging.debug("""Provided category %s is known...
+            logger.debug("""Provided category %s is known...
                           Check for custom storage path""", category_name)
 
             if "storage_path" in scheme["categories"]["categories"][category_name]:
                 #Line Break for Pylint #C0301
                 base_path = os.path.join(base_path,
                             scheme["categories"]["categories"][category_name]["storage_path"])
-                logging.debug("Custom category path is defined. Storage path is %s", base_path)
+                logger.debug("Custom category path is defined. Storage path is %s", base_path)
             else:
                 #Line Break for Pylint #C0301
                 logger.info("""Category %s don't have an individual storage path! -
@@ -1721,7 +1911,7 @@ def decide_storage_path(url, scheme, is_subscription=False):
 
         if scheme["categories"]["needed"] is True:
             #if url don't have category -> Fail
-            logging.debug("Scheme requires category")
+            logger.debug("Scheme requires category")
             if not categories_defined:
                 #Line Break for Pylint #C0301
                 logger.error("""Scheme requires categories but none are defined.
@@ -1833,7 +2023,7 @@ def create_hash_from_file(file):
     if file is None:
         logger.error("File is NONE!")
         return return_val
-    logging.debug("Create hash from file %s", file)
+    logger.debug("Create hash from file %s", file)
     #create hash and return the hex value
     hash_obj = hashlib.sha256()
     try:
@@ -1904,7 +2094,7 @@ def get_expected_filepath(metadata:dict, path:str):
         - str -> Filename
     """
     if not "title" in metadata or not "ext" in metadata:
-        logging.error("Metadata does not contain title or ext key!")
+        logger.error("Metadata does not contain title or ext key!")
         return None
 
     filename = YoutubeDL(get_ydl_opts(path)).prepare_filename(metadata,

@@ -9,7 +9,7 @@
             "file_name": {"type": "text", "not_null": true},
             "file_path": {"type": "text", "not_null": true},
             "file_hash": {"type": "text", "not_null": true, "unique": true},
-            "url": {"type": "text", "not_null": true, "unique": true},
+            "url": {"type": "text", "not_null": false, "unique": true},
             "created": {"type": "DATETIME", "default": "CURRENT_TIMESTAMP"},
             "locked": {"type": "integer", "not_null": true, "default": "0"},
             "tags": {"type": "text", "not_null": false},
