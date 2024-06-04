@@ -121,8 +121,7 @@ if len(sys.argv) > 1:
                 filter_list = list(sys.argv[2].split(","))
                 NO_ERROR = list_subscriptions(filter_list)
             else:
-                list_subscriptions(None)
-                sys.exit(-1)
+                NO_ERROR = list_subscriptions(None)
         case "custom":
             #Download a custom Item without being part of a subscription
             #parser = argparse
