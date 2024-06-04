@@ -134,7 +134,7 @@ def add_subscription_batch(file:str):
         return True
     logger.error("Error while adding subscription batch!")
     return False
-    
+
 def del_subscription(identifier:str):
     """ This function removes a passed subscription from the database
         (This function does NOT remove the files!)
@@ -411,15 +411,15 @@ def update_subscriptions():
 def export_subscriptions():
     "This functions exports all subscriptions saved in the db"
 
-    subscriptions = fetch_value("subscriptions", None, ["subscription_path", 
-                                                        "subscription_last_checked", 
-                                                        "downloaded_content_count", 
+    subscriptions = fetch_value("subscriptions", None, ["subscription_path",
+                                                        "subscription_last_checked",
+                                                        "downloaded_content_count",
                                                         "last_subscription_data",
                                                         "subscription_name"])
 
     if subscriptions is None:
         logging.error("Error while fetching subscriptions")
-    
+
     exported_subscriptions:list = []
     for subscription in subscriptions:
         subscription_obj = {
@@ -441,11 +441,11 @@ def export_subscriptions():
     logging.info("Exported %i subscriptions. Create file at %s", len(exported_subscriptions), os.path.abspath(base_path))
 
     #Insert list into file.
-    
+
     try:
-        with open(os.path.join(os.path.abspath(base_path), 
-                               "subscriptions_export.json"), 
-                               encoding="UTF-8", 
+        with open(os.path.join(os.path.abspath(base_path),
+                               "subscriptions_export.json"),
+                               encoding="UTF-8",
                                mode="w+") as subscription_file:
             subscriptions_as_json = json.dumps(exported_subscriptions)
             subscription_file.write(subscriptions_as_json)
@@ -465,7 +465,7 @@ def import_subscriptions(path="./"):
     if not os.path.exists(path):
         logging.error("The given path does not exist!")
         return False
-    
+
     try:
         with open(os.path.abspath(path), encoding="UTF-8", mode="r") as f:
             subscriptions = f.read()
@@ -482,7 +482,7 @@ def import_subscriptions(path="./"):
             if not success:
                 error_raised = True
                 failed_imports.append(subscription["subscription_name"])
-        
+
         if error_raised:
             for failed_import in failed_imports:
                 logging.error("Error while importing %s to db!", failed_import)
@@ -1588,7 +1588,7 @@ def validate(rehash=True):
         logger.error("Error while fetching base path!")
         return False
     base_path = base_path[0]
-    
+
     base_path = os.path.abspath(base_path)
 
     error_happened = False
@@ -1600,14 +1600,14 @@ def validate(rehash=True):
             abs_file_path = os.path.join(current_dir, file)
 
             path_data = fetch_path_data(abs_file_path)
-            
+
             if not path_data["status"]:
                 logger.error("Error while fetching path data for path %s", abs_file_path)
                 error_happened = True
                 error_files.append(abs_file_path)
                 error_messages.append("Error while fetching Path Data!")
                 continue
-            
+
             if path_data["schema_name"] is None or path_data["schema_name"] == "custom":
                 logger.warning("File %s can not be tested! - Schema \"%s\" is not valid", path_data["filename"], path_data["schema_name"])
                 continue
@@ -1629,7 +1629,7 @@ def validate(rehash=True):
                 #File hash created add other stuff
 
 
-                
+
 
 ################# Helper
 def fetch_path_data(path):
@@ -1643,7 +1643,7 @@ def fetch_path_data(path):
         Return Value:
             {
                 "status": False, -> Operation successfull? - Use it as probe!
-                "schema_name": None,  -> Extracted / Assumed scheme name (could be empty) - but only for files in base bath 
+                "schema_name": None,  -> Extracted / Assumed scheme name (could be empty) - but only for files in base bath
                 "subscription": None, -> Extracted / Assumed subscription name (could be empty)
                 "category": None,  -> Extracted / Assumed category (could be empty)
                 "filename": None -> Extracted file name
@@ -1656,19 +1656,19 @@ def fetch_path_data(path):
     if not base_path:
         logger.error("Error while fetching base path!")
         return return_val
-    
+
     base_path = base_path[0]
     base_path = os.path.abspath(base_path)
 
     if not base_path in path:
         logger.error("Can't find basepath in passed path! - Unexpected event")
         return return_val
-    
+
     #Remove the base path from the file path and strip the leading / or \ with os.sep => Separator for FS...
     prepare_path = str(path).replace(base_path, "").strip(os.sep)
     prepare_path = prepare_path.split(os.path.sep)
-    
-    #4 possible outcomes => 
+
+    #4 possible outcomes =>
     #   Array len = 1 -> Only File, File is in base path?
     #   Array len = 2 -> Only Scheme and file -> Scheme dont support categories or subscriptions (e.g. custom)
     #   Array len = 3 -> There is no category
