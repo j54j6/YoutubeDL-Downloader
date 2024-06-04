@@ -1,0 +1,8 @@
+name: Subscriptions
+
+on:
+    - push
+    - pull-request
+
+jobs:
+    

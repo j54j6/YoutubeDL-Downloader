@@ -90,68 +90,72 @@ logging.info("All mandatory tables are existing...")
 #Deciding action based on given arguments
 if len(sys.argv) > 1:
     #Command provided
+    NO_ERROR = True
     match sys.argv[1]:
         case "help":
             #provide help
             show_help()
-            sys.exit()
+            sys.exit(1)
         case "add-subscription":
             #Add a new subscription
             if len(sys.argv) >= 3 and len(sys.argv) <= 5:
                 if str(sys.argv[2]).lower() != "batch":
-                    add_subscription(sys.argv[2])
+                    NO_ERROR = add_subscription(sys.argv[2])
                 else:
-                    add_subscription_batch(sys.argv[3])
+                    NO_ERROR = add_subscription_batch(sys.argv[3])
             else:
                 logging.error("No url provided!")
                 show_help()
-            sys.exit()
+                sys.exit(-1)
         case "del-subscription":
             #Delete a subscription
             if len(sys.argv) == 3:
-                del_subscription(sys.argv[2])
+                NO_ERROR = del_subscription(sys.argv[2])
             else:
                 logging.error("No url provided!")
                 show_help()
-            sys.exit()
+                sys.exit(-1)
         case "list-subscriptions":
             #Show all subscriptions
             if len(sys.argv) == 3:
                 filter_list = list(sys.argv[2].split(","))
-                list_subscriptions(filter_list)
+                NO_ERROR = list_subscriptions(filter_list)
             else:
                 list_subscriptions(None)
-            sys.exit()
+                sys.exit(-1)
         case "custom":
             #Download a custom Item without being part of a subscription
             #parser = argparse
             if len(sys.argv) >= 3 and len(sys.argv) <= 4:
                 if str(sys.argv[2]).lower() != "batch":
-                    direct_download(sys.argv[2])
+                    NO_ERROR = direct_download(sys.argv[2])
                 else:
-                    direct_download_batch(sys.argv[3])
+                    NO_ERROR = direct_download_batch(sys.argv[3])
             else:
                 logging.error("No url provided!")
                 show_help()
-            sys.exit()
+                sys.exit(-1)
         case "start":
             #Run the script to check for new content and download it
-            start()
-            sys.exit()
+            NO_ERROR = start()
         case "validate":
             #Rehash all files and compare them to the already stored files. And look for files not registered in the db
-            validate()
-            sys.exit()
+            NO_ERROR = validate()
         case "export-subscriptions":
-            export_subscriptions()
-            sys.exit()
+            NO_ERROR = export_subscriptions()
         case "import-subscriptions":
             if sys.argv[2] is not None:
-                import_subscriptions(sys.argv[2])
+                NO_ERROR = import_subscriptions(sys.argv[2])
             else:
                 logging.error("Please provide a path to import subscriptions")
                 show_help()
+                sys.exit(-1)
         case _:
             show_help()
+            sys.exit(-1)
+    if NO_ERROR:
+        sys.exit(0)
+    sys.exit(-1)
 else:
     show_help()
+    sys.exit(-1)

@@ -64,7 +64,7 @@ def start():
         logger.error("Error while updating subscriptions!")
         return False
 
-    downloaded = download_missing()
+    return download_missing()
 
 ################# Subscription related
 

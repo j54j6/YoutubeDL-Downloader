@@ -22,7 +22,30 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-
-
-
+      - name: Adding Subscription correctly
+        run: |
+          python3 ./yt_manager.py add-subscription https://www.youtube.com/@PracticalEngineeringChannel
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "Command succeeded with exit code 0"
+          elif [ $EXIT_CODE -eq -1 ]; then
+            echo "Command failed with exit code -1"
+          else
+            echo "Command exited with unexpected code $EXIT_CODE"
+            exit 1
+          fi
+        shell: bash
+      - name: Adding Subscription wrong (missing link)
+        run: |
+          python3 ./yt_manager.py add-subscription
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "Command succeeded with exit code 0"
+          elif [ $EXIT_CODE -eq -1 ]; then
+            echo "Command failed with exit code -1"
+          else
+            echo "Command exited with unexpected code $EXIT_CODE"
+            exit 1
+          fi
+        shell: bash
     
