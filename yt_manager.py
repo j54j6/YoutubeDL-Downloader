@@ -29,7 +29,7 @@ import sys
 from project_functions import (show_help, direct_download, direct_download_batch,
                                scheme_setup, add_subscription, add_subscription_batch,
                                del_subscription, list_subscriptions, export_subscriptions,
-                               import_subscriptions, start, validate)
+                               import_subscriptions, start, validate, export_items, import_items)
 from database_manager import check_db
 from config_handler import check_for_config
 
@@ -122,6 +122,29 @@ if len(sys.argv) > 1:
                 NO_ERROR = list_subscriptions(filter_list)
             else:
                 NO_ERROR = list_subscriptions(None)
+        case "export-subscriptions":
+            NO_ERROR = export_subscriptions()
+        case "import-subscriptions":
+            if sys.argv[2] is not None:
+                NO_ERROR = import_subscriptions(sys.argv[2])
+            else:
+                logging.error("Please provide a path to import subscriptions")
+                show_help()
+                sys.exit(-1)
+        case "export-items":
+            NO_ERROR = export_items()
+        case "import-items":
+            if sys.argv[2] is not None:
+                NO_ERROR = import_items(sys.argv[2])
+            else:
+                logging.error("Please provide a path to import items")
+                show_help()
+                sys.exit(-1)
+        case "backup":
+            NO_ERROR = export_subscriptions()
+            if NO_ERROR:
+                NO_ERROR = export_items()
+                logging.info("Backup successfully created")
         case "custom":
             #Download a custom Item without being part of a subscription
             #parser = argparse
@@ -140,15 +163,6 @@ if len(sys.argv) > 1:
         case "validate":
             #Rehash all files and compare them to the already stored files. And look for files not registered in the db
             NO_ERROR = validate()
-        case "export-subscriptions":
-            NO_ERROR = export_subscriptions()
-        case "import-subscriptions":
-            if sys.argv[2] is not None:
-                NO_ERROR = import_subscriptions(sys.argv[2])
-            else:
-                logging.error("Please provide a path to import subscriptions")
-                show_help()
-                sys.exit(-1)
         case _:
             show_help()
             sys.exit(-1)
