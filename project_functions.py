@@ -44,7 +44,7 @@ from config_handler import config
 logger = logging.getLogger(__name__)
 
 #Define buffer per Thread in Bytes for filehashing - Default 2GB = 2147483648
-BUF_SIZE = 2147483648
+BUF_SIZE = 107374182
 
 
 ################# MAIN
@@ -2244,6 +2244,9 @@ def create_hash_from_file(file):
         return return_val
     except FileNotFoundError as e:
         logger.error("Error while creating hash of file! - Error: %s", e)
+        return return_val
+    except OSError as e:
+        logger.error("Error while creating Hash from file! - Error: %s", e)
         return return_val
 
 def error_post_processing(full_file_path):
