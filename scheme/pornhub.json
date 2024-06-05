@@ -15,28 +15,28 @@
         "needed": true,
         "category_path": 1,
         "categories": {
-            "pornstar": 
+            "pornstar":
             {
                 "direct_download": false,
                 "subscription": true,
                 "subscription_url": "videos/upload",
-                "storage_path": "pornstars"
+                "storage_path": "pornstar"
             },
-            "model": 
+            "model":
             {
                 "direct_download": false,
                 "subscription": true,
                 "subscription_url": "videos/upload",
                 "storage_path": "model"
             },
-            "channels": 
+            "channels":
             {
                 "direct_download": false,
                 "subscription": true,
                 "subscription_url": "videos",
                 "storage_path": "channels"
             },
-            "users": 
+            "users":
             {
                 "direct_download": false,
                 "subscription": true,
@@ -64,7 +64,7 @@
         "subscription_name_locator": 2,
         "url_blueprint": "{scheme}://{subd}.{sld}.{tld}/{category}/{subscription_name}/{subscription_url}"
     },
-    "header": 
+    "header":
     {
         "Cookie": "accessAgeDisclaimerPH=1"
     },

@@ -167,7 +167,6 @@ if len(sys.argv) > 1:
             show_help()
             sys.exit(-1)
     if NO_ERROR:
-        print("REeturn 0 - No Error")
         sys.exit(0)
     sys.exit(-1)
 else:

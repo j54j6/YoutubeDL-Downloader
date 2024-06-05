@@ -832,23 +832,20 @@ def direct_download(url:str, own_file_data:dict=None):
         logger.error("Error while downloading file from %s - Please check log!", url)
         return False
 
-
     full_file_path = downloaded["full_file_path"]
     metadata = downloaded["metadata"]
-
     logger.debug("Full File path is: %s", full_file_path)
-
     #Compute hash from file
     file_hash = create_hash_from_file(full_file_path)
-
     #Check if hash created successfully
+
     if not file_hash["status"] or file_hash["hash"] is None:
+
         logger.error("Error while creating hash from file! - Please check log. - Results: %s, %s",
                      file_hash["status"], file_hash["hash"])
+
         error_post_processing(full_file_path)
         return False
-
-
     #Check if hash is already in database
     #If hash is not in db -> Video is new -
     #If hash is in db video already exist. Check if the url is the same
@@ -860,38 +857,79 @@ def direct_download(url:str, own_file_data:dict=None):
                                            file_hash["hash"],
                                            {"url": [url]},
                                            metadata)
-
         if video_registered:
             logger.info("File successfully downlaoded.")
             return True
         logger.error("Error while register Video to db!")
         error_post_processing(full_file_path)
         return False
-    #TODO
-    #hash already exist - check if url is the same. If not add it to url
-    return False
+
+    return True
 
 #This function will actually download a file...
-def download_file(url, path):
+def download_file(url, path, metadata=None, ignore_existing_url=False):
     """This function downloads the file specified in url and also provides the prepared
         file path from ydl
+
+        if the metadata parameter is None they will be fetched
 
         Return Value:dict
         {
             "status": False, - Operation successfull? - Use it as probe!
             "full_file_path": None, - The full file path to the file (absolute path)
                                         including the filename
+            "filename": None,
             "metadata": None - Metadata from the file
         }
     """
+    return_val = {"status": False, "full_file_path": None, "filename": None, "metadata": None}
+    metadata = get_metadata(url, get_ydl_opts(path))
+    if metadata is None:
+            logging.error("Error while fetching metadata to check if video already exists in db! - Continue without checking")
+            return return_val
+
+    full_file_path = YoutubeDL(get_ydl_opts(path)).prepare_filename(metadata,
+                                                                      outtmpl=path +
+                                                                      '/%(title)s.%(ext)s')
+
+    filename = os.path.basename(full_file_path).split(os.path.sep)[-1]
+    return_val["full_file_path"] = full_file_path
+    return_val["filename"] = filename
+    if not ignore_existing_url:
+        #Check if video (path) is in db
+
+        file_in_db = fetch_value("items", {"file_path": path, "file_name": filename}, ["file_path"], True)
+        if  file_in_db is not None:
+            logging.info("Video already exists in DB! - check if url exist")
+            url_is_in_db = check_is_url_in_items_db(url, filename, path)
+            if not url_is_in_db["status"]:
+                logger.error("Error while checking if url is in db!")
+                #Since the file already exist there is no really need to download the file again. The url add is only a double check.
+                # So we will return true
+                return_val["status"] = True
+                return return_val
+            if not url_is_in_db["url_exist"]:
+                url_added = add_url_to_item_is_db(url_is_in_db["id"], url)
+                if not url_added:
+                    logger.error("Error while adding url to file in DB!")
+                    return_val["status"] = True
+                    return return_val
+            return_val["status"] = True
+            return return_val
+
+    logging.info("File %s dont exist in DB", full_file_path)
+
     logger.info("Downloading file from server")
-    return_val = {"status": False, "full_file_path": None, "metadata": None}
+
 
     try:
         ydl_opts = get_ydl_opts(path)
 
-        metadata = get_metadata(url, ydl_opts)
-        if not metadata or not "title" in metadata or not "ext" in metadata:
+        #Fetch metadata if not passed
+        if metadata is None:
+            metadata = get_metadata(url, ydl_opts)
+
+        if not metadata or "title" not in metadata or "ext" not in metadata:
             #Line Break for Pylint #C0301
             logger.error("""Error while fetching metadata from target server! -
                          Metadata could not be fetched or key \"title\" / \"ext\" is missing""")
@@ -1058,6 +1096,12 @@ def download_missing():
 
             #If the file should not be downlaoded go to the next one
             if not download_file_now:
+                url_in_db = check_is_url_in_items_db(entry["url"], expected_filename["filename"], expected_path)
+
+                if url_in_db["status"]:
+                    if not url_in_db["url_exist"]:
+                        if not add_url_to_item_is_db(url_in_db["id"], entry["url"]):
+                            logger.error("Error while adding url to db!")
                 continue
 
             file_downloaded = direct_download(entry["url"], subscription_path)
@@ -1366,6 +1410,38 @@ def load_scheme(url: str):
     return_scheme["scheme_path"] = scheme_path
     return return_scheme
 
+def load_scheme_by_name(scheme_name:str):
+    """
+        This function loads a scheme by it's name.
+
+        Return Values: dict
+        {
+            "status": False, -> Operation successfull? - Use it as probe
+            "scheme": None,  -> The scheme file as dict
+            "scheme_path": None -> The absolute path to the scheme file - can be used with open()
+        }
+    """
+    return_scheme = {"status": False, "scheme": None, "scheme_path": None}
+
+    logger.debug("Load Scheme %s", scheme_name)
+    scheme_dir = os.path.join(pathlib.Path(__file__).parent.resolve(), "scheme")
+    expected_scheme_path = os.path.join(scheme_dir, scheme_name + ".json")
+
+    if not os.path.isfile(expected_scheme_path):
+        logging.error("Can't load scheme file! - File not exist!")
+        return return_scheme
+
+    #Load Scheme
+    scheme = load_json_file(expected_scheme_path)
+    if not scheme:
+        logger.error("Error while loading scheme! - Check log")
+        return return_scheme
+
+    return_scheme["status"] = True
+    return_scheme["scheme"] = scheme
+    return_scheme["scheme_path"] = expected_scheme_path
+    return return_scheme
+
 def fetch_scheme_file(url:str):
     """
         This function is used to fetch a matching scheme.
@@ -1621,7 +1697,7 @@ def prepare_scheme_dst_data(url, is_subscription=False):
         {
             "status": 0, -> Possible values: int - 0 = Failed, 1 = Success,
                                                     2 = File already exist - use it as a probe!
-            "scheme": None,  -> The scheme name (e.g. reddit.json)
+            "scheme": None,  -> The scheme file as dict
             "scheme_path": None, -> The absolute path to the scheme
             "dst_path": None -> The absolute path where to sabve the file that will be downloaded
         }
@@ -1671,6 +1747,10 @@ def prepare_scheme_dst_data(url, is_subscription=False):
 def validate(rehash=True):
     """ This function itereates over all folders from the root directory (base path in db)
         and checks
+
+        Return Value: bool
+            -> True - Success
+            -> False -> Failed while validating
     """
 
     #fetch base path
@@ -1686,6 +1766,7 @@ def validate(rehash=True):
     error_happened = False
     error_files = []
     error_messages = []
+    added_files = 0
     for current_dir, current_dir_directories, current_dir_files in os.walk(base_path):
         for file in current_dir_files:
             #Get the filepath of the current file
@@ -1705,12 +1786,12 @@ def validate(rehash=True):
                 continue
 
             #Check if Video is in DB
-            file_in_db = fetch_value("items", {"file_name": path_data["filename"]}, ["file_name", "scheme", "file_hash", "locked"])
+            file_in_db = fetch_value("items", {"file_name": path_data["filename"]}, ["file_name", "scheme", "file_hash", "locked"], True)
 
             if file_in_db is None:
                 #Add file to db
                 file_hash = create_hash_from_file(abs_file_path)
-                save_file_to_db()
+
                 if not file_hash["status"]:
                     logger.error("Error while hashing file! - Can't add file to db!")
                     error_happened = True
@@ -1719,11 +1800,36 @@ def validate(rehash=True):
                     continue
 
                 #File hash created add other stuff
+                loaded_scheme = load_scheme_by_name(path_data["schema_name"])
+
+                if not loaded_scheme["status"]:
+                    error_happened = True
+                    error_files.append(abs_file_path)
+                    error_messages.append("Error while fetching scheme data for file!")
+
+                file_saved = save_file_to_db(loaded_scheme, abs_file_path, file_hash["hash"], None, None)
+
+                if not file_saved:
+                    error_happened = True
+                    error_files.append(abs_file_path)
+                    error_messages.append("Error while saving video in db!")
+                    continue
+                else:
+                    logging.info("File %s added to DB!", file)
+                    added_files += 1
+    if not error_happened:
+        logging.info("All files validated! - Added %i files", added_files)
+        return True
+    else:
+        logger.error("Error while validating files. Errors:")
+        for index, error_message in enumerate(error_messages):
+            logger.error("Affected File: %s, Error: %s", error_files[index], error_message)
+        return False
 
 ################# Helper
 def fetch_path_data(path):
     '''
-        This file returns the expected file scheme based on a defined rule set and the strict defined path syntax from this project.
+        This function returns the expected file scheme based on a defined rule set and the strict defined path syntax from this project.
 
         Expcected Syntax:
 
@@ -1818,7 +1924,7 @@ def show_help():
                         you want to include'''])
     help_table.add_row(['import-subscriptions',
                         '<<file>>',
-                        '''Import subscriptions from another instance (JSON File). 
+                        '''Import subscriptions from another instance (JSON File).
                         You can make backups using "export-subscriptions"'''])
     help_table.add_row(['export-subscriptions',
                         '',
@@ -2047,6 +2153,11 @@ def get_metadata(url, ydl_opts):
         Possible return Values:dict|None
         - dict -> metadata
         - None -> Failed to fetch data
+
+        Important keys in result:
+        - title
+        - uploader
+        - tags
     """
     try:
         with YoutubeDL(ydl_opts) as ydl:
@@ -2197,3 +2308,114 @@ def get_expected_filepath(metadata:dict, path:str):
                                                               '/%(title)s.%(ext)s')
     head, tail = os.path.split(filename)
     return {"filepath": head, "filename": tail}
+
+def check_is_url_in_items_db(url, filename=None, file_path=None):
+    """
+        This functions checks if a given url exists in the items table under "url".
+        This can be done for the whole table (filename=None) or for a specific file
+        filename=<<filename>>
+
+        Return Val: dict
+            {
+                "status": False -> Operation successfull? - Use it as probe
+                "url_exist": False -> Url exist in items table?
+                "id": 1 -> ID of file entry in db
+                "file_name": <<name>> -> Name of file in DB
+                "file_path": <<file_path>> -> Filepath of file in DB
+            }
+    """
+    return_val = {"status": False, "url_exist": False, "id": None, "file_name": None, "file_path": None}
+    if filename is None:
+        logger.debug("Check if url %s is already in items", url)
+    else:
+        logger.debug("Check if url %s is already saved as url for item %s", url, filename)
+
+    if filename is None and file_path is None:
+        #Load all urls from items table
+        fetched_urls = fetch_value("items", None, ["id", "file_name", "file_path", "url"])
+    else:
+        #Load only entry for the defined file
+        if file_path is None or filename is None:
+            logging.error("Filename and file path need to be specified!")
+            return return_val
+        fetched_urls = fetch_value("items", {"file_name": filename, "file_path": file_path}, ["id", "file_name", "file_path", "url"])
+
+    if fetched_urls is None or fetched_urls == [] or not isinstance(fetched_urls, list):
+        logger.error("Error while loading urls!")
+        return return_val
+    for item_obj in fetched_urls:
+        urls = item_obj[3]
+        if urls is None:
+            #There are no urls provided for the current obj - SKIP
+            continue
+        try:
+            urls = json.loads(urls)
+            urls = urls["url"]
+            for item_url in urls:
+                if item_url == url:
+                    logging.debug("Url is in DB!")
+                    return_val["status"] = True
+                    return_val["url_exist"] = True
+                    return_val["id"] = item_obj[0]
+                    return_val["file_name"] = item_obj[1]
+                    return_val["file_path"] = item_obj[2]
+                    return return_val
+
+        except json.JSONDecodeError:
+            logger.error("Error while loading url column from db entry %s", item_obj[1])
+            continue
+    #Url not found
+    #Return Val must include the following keys
+    return_val["status"] = True
+    return_val["url_exist"] = False
+    if filename is not None:
+        #These data are only needed if the url dont exist in a specified query
+        # Since we fetched a specified file (filename and path) there should be only one entry in the array
+        return_val["id"] = fetched_urls[0][0]
+        return_val["file_name"] = fetched_urls[0][1]
+        return_val["file_path"] = fetched_urls[0][2]
+    return return_val
+
+def add_url_to_item_is_db(item_id, url):
+    """
+        This functions adds a new url to an already existing item in the db.
+        Since the url column contains a JSON array it is done with this helper function
+
+        Return Value: bool
+            - True -> Success
+            - False -> Failed
+    """
+    logger.debug("Add url to item with id %s", item_id)
+
+    #Fetch item
+    item = fetch_value("items", {"id": item_id}, ["url", "id"], True)
+
+    if item is None:
+        logging.error("Error while adding url to item! - Can't fetch item")
+        return False
+
+    #Item loaded - try to load url (json format)
+    try:
+        if item[0] is not None:
+            #Urls already defined
+            urls = json.loads(item[0])
+            urls = urls["url"]
+
+            urls.append(url)
+        else:
+            #No urls defined
+            urls = [url]
+
+        new_urls_obj = {
+            "url": urls
+        }
+
+        item_updated = update_value("items", {"url": new_urls_obj}, {"id": item_id})
+
+        if not item_updated:
+            logging.error("Error while updatig item!")
+            return False
+        return True
+    except json.JSONDecodeError as e:
+        logger.error("Error while decoding url array! - Error : %s", e)
+        return False
