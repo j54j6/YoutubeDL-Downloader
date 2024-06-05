@@ -44,7 +44,8 @@ from config_handler import config
 logger = logging.getLogger(__name__)
 
 #Define buffer per Thread in Bytes for filehashing - Default 2GB = 2147483648
-BUF_SIZE = 107374182
+#If you have problems adding files decrease the value!
+BUF_SIZE = 1073741824 
 
 
 ################# MAIN
@@ -1058,7 +1059,7 @@ def download_missing():
             file_already_exist_in_db = fetch_value("items", [
                 {"file_name" : expected_filename["filename"]},
                 {"url": entry["url"]}],
-                ["id"])
+                ["id", "url", "tags", "data"])
 
             if(file_already_exist_in_db is not None and
                file_already_exist_in_db is not False and
@@ -1090,6 +1091,39 @@ def download_missing():
                     #on FS.
                     downloaded += 1
                     download_file_now = False
+
+                #Check if all data are existing for the current file
+                # url = file_already_exist_in_db[1], tags = 2, data = 3
+
+                #check if url exist
+                url_exist = check_is_url_in_items_db(entry["url"], expected_filename, expected_path)
+
+                if url_exist["status"] and not url_exist["url_exist"]:
+                    logger.info("Add url to exissting db entry")
+                    url_added = add_url_to_item_is_db(url_exist["id"], entry["url"])
+
+                    if not url_added:
+                        logger.error("Error while adding url to file %s", expected_filename)
+                
+                #check if tags wanted and exist
+                use_tags = fetch_value_as_bool("config", {"option_name": "use_tags_from_ydl"}, ["option_value"], True)
+
+                if use_tags:
+                    logger.info("YT-DL Tags are enabled")
+
+                    if file_already_exist_in_db[2] is None:
+                        file_metadata = get_metadata(metadata["url"], get_ydl_opts(expected_path))
+
+                        if file_metadata is not None:
+                            added_tags = update_value("items", {"tags": file_metadata}, {"file_name": expected_filename, "file_path": expected_path}) 
+                            if not added_tags:
+                                logging.error("Error while adding tags to %s", expected_filename)   
+
+                #Check data (metadata)
+                if file_already_exist_in_db[3] is None:
+                    added_metadata = update_value("items", {"data": metadata}, {"file_name": expected_filename, "file_path": expected_path}) 
+                    if not added_metadata:
+                        logging.error("Error while adding metadata to %s", expected_filename)             
             else:
                 logger.info("New file %s will be downloaded", entry["title"])
 
@@ -1168,7 +1202,7 @@ def save_file_to_db(scheme_data, full_file_path, file_hash, url, metadata):
         "url": url,
         "data": metadata
     }
-    if use_tags_ydl:
+    if use_tags_ydl and metadata is not None:
         logger.info("Also insert tags from ydl metadata")
         if "tags" in metadata:
             logger.debug("Found key 'tags'")
