@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 #Define buffer per Thread in Bytes for filehashing - Default 2GB = 2147483648
 #If you have problems adding files decrease the value!
-BUF_SIZE = 1073741824 
+BUF_SIZE = 4096
 
 
 ################# MAIN
@@ -1104,7 +1104,7 @@ def download_missing():
 
                     if not url_added:
                         logger.error("Error while adding url to file %s", expected_filename)
-                
+
                 #check if tags wanted and exist
                 use_tags = fetch_value_as_bool("config", {"option_name": "use_tags_from_ydl"}, ["option_value"], True)
 
@@ -1115,15 +1115,15 @@ def download_missing():
                         file_metadata = get_metadata(metadata["url"], get_ydl_opts(expected_path))
 
                         if file_metadata is not None:
-                            added_tags = update_value("items", {"tags": file_metadata}, {"file_name": expected_filename, "file_path": expected_path}) 
+                            added_tags = update_value("items", {"tags": file_metadata}, {"file_name": expected_filename, "file_path": expected_path})
                             if not added_tags:
-                                logging.error("Error while adding tags to %s", expected_filename)   
+                                logging.error("Error while adding tags to %s", expected_filename)
 
                 #Check data (metadata)
                 if file_already_exist_in_db[3] is None:
-                    added_metadata = update_value("items", {"data": metadata}, {"file_name": expected_filename, "file_path": expected_path}) 
+                    added_metadata = update_value("items", {"data": metadata}, {"file_name": expected_filename, "file_path": expected_path})
                     if not added_metadata:
-                        logging.error("Error while adding metadata to %s", expected_filename)             
+                        logging.error("Error while adding metadata to %s", expected_filename)
             else:
                 logger.info("New file %s will be downloaded", entry["title"])
 
@@ -1180,13 +1180,35 @@ def save_file_to_db(scheme_data, full_file_path, file_hash, url, metadata):
     """ This function is used to save a file into the items table. It is basically
         an SQL Insert wrapper
 
-        Return Value: bool
-        - True (File successfully saved)
-        - False (Failed to save file to db)
+        Return Value: dict
+        {
+            "status": False -> Operation successfull? - Use it as probe
+            "hash_exist": False -> Does the hash already exist in db?
+            "file_id": 1 -> ID of the file with the same  hash
+            "file_name": "hello.mp4" -> Name of the file with the same hash value
+            "file_path": "/path/to/file" -> Path to the file
+        }
     """
+    return_val = {
+        "status": False,
+        "hash_exist": False,
+        "file_id": None,
+        "file_name": None,
+        "file_path": None
+    }
     #Video hash not exist as saved item add it...
     logger.info("Add Video to DB")
     scheme_path = scheme_data["scheme_path"]
+
+    hash_exist = fetch_value("items", {"file_hash": file_hash}, ["id", "file_name", "file_path"], True)
+    if  hash_exist is not None:
+        logger.debug("File hash already exist in DB! - Skip saving File")
+        return_val["file_id"] = hash_exist[0]
+        return_val["file_name"] = hash_exist[1]
+        return_val["file_path"] = hash_exist[2]
+        return_val["hash_exist"] = True
+        return_val["status"] = True
+
 
     head, tail = os.path.split(full_file_path)
     logger.debug("Scheme Data: %s", scheme_path)
@@ -1229,11 +1251,12 @@ def save_file_to_db(scheme_data, full_file_path, file_hash, url, metadata):
                 #Line Break for Pylint #C0301
                 logger.error("""Error while removing video after post processing error! -
                               Check permissions""")
-            return False
+            return return_val
         logger.warning("File will not be removed! - Be cautious, the file is not saved in the db!")
-        return False
+        return return_val
     logger.info("Video successfully saved. - Finished")
-    return True
+    return_val["status"] = True
+    return return_val
 
 def export_items():
     "This functions exports all items saved in the db"
@@ -1325,7 +1348,6 @@ def import_items(path="./"):
         logging.error("Error while loading JSON File! - Error: %s", e)
         return False
     return True
-
 
 ################# Scheme functions
 
@@ -1843,11 +1865,14 @@ def validate(rehash=True):
 
                 file_saved = save_file_to_db(loaded_scheme, abs_file_path, file_hash["hash"], None, None)
 
-                if not file_saved:
+                if not file_saved["status"]:
                     error_happened = True
                     error_files.append(abs_file_path)
                     error_messages.append("Error while saving video in db!")
                     continue
+                elif file_saved["status"] and file_saved["hash_exist"]:
+                    logger.debug("File already exist in db!")
+                    add_duplicate_file(file_hash["hash"], path_data["filename"], os.path.abspath(current_dir), file_saved["file_id"], file_saved["file_name"], file_saved["file_path"])
                 else:
                     logging.info("File %s added to DB!", file)
                     added_files += 1
@@ -1963,6 +1988,9 @@ def show_help():
     help_table.add_row(['export-subscriptions',
                         '',
                         '''Create a Backup of the subscription table. A JSON File is created in the base directory'''])
+    help_table.add_row(['import-subscriptions',
+                        '',
+                        '''Import a Backup of the subscription table.'''])
     help_table.add_row(['', '', ''])
     help_table.add_row(['--Other--', '', ''])
     #Line Break for Pylint #C0301
@@ -1984,6 +2012,19 @@ def show_help():
                         Use it with care or overnight :) -
                         At the end you will see a report and you can decide if mismatched files
                         should be redonwloaded'''])
+    help_table.add_row(['backup',
+                        '',
+                        '''Create a backup and export all subscriptions and items into json files.'''])
+    help_table.add_row(['export-items',
+                        '',
+                        '''Creeate a backup file with all items in the db.'''])
+    help_table.add_row(['import-items',
+                        '<<path>>',
+                        '''Creeate a backup file with all items in the db.'''])
+    help_table.add_row(['show-duplicates',
+                        '',
+                        '''Show duplicates (use command validate before!)'''])
+
     help_table.add_row(['', '', ''])
     help_table.add_row(['--Operation--', '', ''])
     #Line Break for Pylint #C0301
@@ -2456,3 +2497,124 @@ def add_url_to_item_is_db(item_id, url):
     except json.JSONDecodeError as e:
         logger.error("Error while decoding url array! - Error : %s", e)
         return False
+
+def add_duplicate_file(hash_value, c_filename, c_filepath= None, db_id=None, db_filename=None, db_filepath = None):
+    """
+        This function is used to identify double files on DB/FS.
+        The function creates a new file (if not exist) and will create a JSON scheme including all duplicates in the following format
+
+        {
+            "<<hash>>": [{"file_id": None, "file_name": None, "file_path": None}, {...}],
+            ...
+        }
+
+        Return Val: Bool
+            - True -> Successfully added duplicate
+            - False -> Failed while adding duplicate
+    """
+
+    #Fetch base path
+    base_path = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
+
+    if base_path is None:
+        logger.error("Can't fetch base path!")
+        return False
+
+    base_path = os.path.abspath(base_path[0])
+    duplicate_file_path = os.path.join(base_path, "duplicates.json")
+
+    content = None
+    if os.path.isfile(duplicate_file_path):
+        with open(duplicate_file_path, encoding="UTF-8") as file:
+            content = file.read()
+
+    duplicates_json = {}
+    if content is not None and content is not "":
+        try:
+            duplicates_json = json.loads(content)
+        except json.JSONDecodeError:
+            duplicates_json = {}
+
+    if duplicates_json == {}:
+        duplicates_json[hash_value] = [
+            {"file_id": db_id, "file_name": db_filename, "file_path": db_filepath},
+            {"file_id": None, "file_name": c_filename, "file_path": c_filepath}
+        ]
+    else:
+        if hash_value in duplicates_json:
+            listing = duplicates_json[hash_value]
+            found_same = False
+            for entry in listing:
+                if entry["file_name"] == c_filename and entry["file_path"] == c_filepath:
+                    found_same = True
+
+            if not found_same:
+                entries:list = duplicates_json[hash_value]
+                entries.append({"file_id": None, "file_name": c_filename, "file_path": c_filepath})
+                duplicates_json[hash_value] = entries
+        else:
+            duplicates_json[hash_value] = [
+            {"file_id": db_id, "file_name": db_filename, "file_path": db_filepath},
+            {"file_id": None, "file_name": c_filename, "file_path": c_filepath}
+            ]
+
+    #Write into file
+    duplicates_json = json.dumps(duplicates_json)
+    with open(duplicate_file_path, "w", encoding="UTF-8") as file:
+        file.write(duplicates_json)
+    return True
+
+def show_duplicate_files():
+    """
+        This function is used to print all duplicates to the cli
+
+        Return Val: None
+    """
+
+    #Fetch base path
+    base_path = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
+
+    if base_path is None:
+        logger.error("Can't fetch base path!")
+        return False
+
+    base_path = os.path.abspath(base_path[0])
+    duplicate_file_path = os.path.join(base_path, "duplicates.json")
+
+    content = None
+    if os.path.isfile(duplicate_file_path):
+        with open(duplicate_file_path, encoding="UTF-8") as file:
+            content = file.read()
+
+    duplicates_json = {}
+    if content is None or len(content) < 2:
+        logging.info("No duplicates found!")
+        return None
+    if content is not None and content is not "":
+        try:
+            duplicates_json = json.loads(content)
+        except json.JSONDecodeError:
+            logger.error("Error while reading duplicate file!")
+            return None
+
+    print("------------------------------ Duplicates ------------------------------")
+    number_of_duplicates = len(duplicates_json)
+
+    #Line Break for Pylint #C0301
+    duplicate_table = PrettyTable(['filename', 'hash', 'paths'])
+    duplicate_table.align['filename'] = "l"
+    duplicate_table.align['hash'] = "l"
+    duplicate_table.align['paths'] = "l"
+    for duplicate in duplicates_json:
+        duplicate_entries = duplicates_json[duplicate]
+        #Use the first entry as name (This is the saved db value)
+        file_name = duplicate_entries[0]["file_name"]
+        avail_paths:str = ""
+        for entry in duplicate_entries:
+            avail_paths += os.path.join(entry["file_path"], entry["file_name"]) + "\n"
+
+        duplicate_table.add_row([file_name, duplicate, avail_paths])
+        duplicate_table.add_row(['','',''])
+    duplicate_table.add_row(['Found duplicates: ',number_of_duplicates,''])
+    print(duplicate_table)
+    return None

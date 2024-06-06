@@ -1,6 +1,6 @@
 
 
-[![GPLv3 License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://opensource.org/licenses/) 
+[![GPLv3 License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://opensource.org/licenses/)
 
 [![CodeFactor](https://www.codefactor.io/repository/github/j54j6/youtubedl-dowloader/badge)](https://www.codefactor.io/repository/github/j54j6/youtubedl-dowloader)
 
@@ -23,7 +23,7 @@
  # Schemes
  Schemes are heavily used inside this project. They utilize different functions and can be used to dynamically change the behaviour of the program without any code knowledge.
  Schemas are used for 2 types
-    1. Configuration -> It is possible to create database blueprints with schemas (like the project.json file used to create the main configuration and all default values). 
+    1. Configuration -> It is possible to create database blueprints with schemas (like the project.json file used to create the main configuration and all default values).
     2. Websites -> To ensure future compatibility all website specific stuff is located inside a scheme file per website. If anything changes on the website it should be possible to alter the file and make it work again (maybe due to a new header or something else...)
 
 For Reference please look in the project.json section
@@ -32,6 +32,9 @@ For Reference please look in the project.json section
 - Downloading videos => Subscriptions, direct and Batch
 - Register Videos in DB
 - Register (Single and Batch) / Deleting and List Subscriptions
+- Create and import Backups
+- Validate your FS
+- Show duplicates
 
 # Currently supported Sites
 - Pinterest
@@ -41,7 +44,7 @@ For Reference please look in the project.json section
 
 # TODO
 - better documentation / Code Quality fixes
-- FS Validator (To check for missing / corrupt files) and for simpler rebuild if data storage was broken
+- FS Validator (rehash all files again and check if any file differs from the original state)
 
 # Postponed todos
 - Implementing support for both SQLite and MySQL
@@ -90,7 +93,7 @@ or if you want to add multiple
 ```
 The file is simply a list of links. Each link gets a new line (Enter Key)
 
-After the command is issued all metadata are downloaded and saved to db. 
+After the command is issued all metadata are downloaded and saved to db.
 IMPORTANT: This feature might change in the future! -  If you use the downlaoded metadata be cautious!
 
 ### Delete Subscriptions
@@ -111,8 +114,52 @@ or
         yt_manager.py del-subscription https://www.youtube.com/@AlexiBexi
 ```
 
+## Backup functionalities
+### Export Subscriptions
+You can create a backup file of your subscriptions. The file will be saved in your base dir (defined in config scheme/db)
+
+```
+        yt_manager.py export-subscriptions
+```
+
+### Import Subscriptions
+You can import a backup file of your subscriptions. Just pass a path to the json file.
+
+```
+        yt_manager.py import-subscriptions <<path>>
+```
+
+### Export Items
+You can create a backup file of your saved items. The file will be saved in your base dir (defined in config scheme/db)
+
+```
+        yt_manager.py export-items
+```
+
+### Import items
+You can import a backup file of your items. Just pass a path to the json file.
+
+```
+        yt_manager.py import-items <<path>>
+```
+
+### Create a full backup of work data
+This will export the subscription table and all items. This command only calls export-items() and export-subscriptions()
+
+```
+        yt_manager.py backup
+```
+
+## Duplicate handling
+### Show duplicates
+This will show all duplicates found after a validate() run in CLI
+
+```
+        yt_manager.py show-duplicates
+```
+
 ## Single download
-If you want to download only one Video you can also use the ```custom``` command. 
+If you want to download only one Video you can also use the ```custom``` command.
 This command will download only the link you provide. It must be a valid video link! -  This means if you paste it into your browser a video should start.
 
 Like in subscriptions the program will save this video in the db and if it detects changes (like corruption) through the ```check``` command, it will redownload the video (if enabled). But also if you move it or delete it from the expected storage path.
@@ -190,7 +237,7 @@ Multiple options are availiable:
     - unique: Each entry of this column needs to be unique (bool)
     - default: Define the default value if nothing is passed (text)
 
-db.rows => This needs to be an array containing all default entries that should be inserted. Each entry is an dict containing all column names that should be filled. 
+db.rows => This needs to be an array containing all default entries that should be inserted. Each entry is an dict containing all column names that should be filled.
 You simply take all row names as keys and the corresponding values as values.
 ```
 
@@ -219,8 +266,8 @@ This file is the blueprint for the items table. This table will contain all down
 }
 ```
 ```
-The options are exactly the same as in the project.json file. 
-I will only explain the columns briefly. If you want to know more about the options and 
+The options are exactly the same as in the project.json file.
+I will only explain the columns briefly. If you want to know more about the options and
 general structure please read the project.json part or create an issue.
 
 id => Just an identifier... Later you can use it maybe to remove files...
@@ -233,26 +280,26 @@ file_path => The path to your file (excluding the filename. Please be aware thes
 
 file_hash => The file hash...
 
-url => since your file could be corrupted the original file url 
-is saved to redownload the file if the check() command will 
-find a corrupt or missing file. 
-As a bonus you can find videos that are not available anymore - 
+url => since your file could be corrupted the original file url
+is saved to redownload the file if the check() command will
+find a corrupt or missing file.
+As a bonus you can find videos that are not available anymore -
 you would wonder how often this is the case ^^
 Also this field is contains a JSON array. This program tries to avoid any double saved videos. If you add a new url or iterate over all subscriptions at the end also the hash will be checked. If it is the same it is possible that multiple sites have published the same video. If so the new url will be appended to the array. With this approach it is less likly that you downlaod a video that you already have just to remove it afterwards...
 
 created => Timestamp of the creatin time...
 
-locked => This program will support multi threading to check all files. 
+locked => This program will support multi threading to check all files.
 Because all need to be rehashed to compare the current hashes to the saved ones.
-Because of this Files will be locked to prevent double access. 
+Because of this Files will be locked to prevent double access.
 Like in my auto_hash repository... The code will be mainly the same...
 
 tags => Many video platforms support tags. You can save the tags if you want or add own tags. This is a feature for a future web gui...
 
-data => This column contains the extracted metadata. 
-This field can be very large and bloating your SQLite db! - 
-Maybe this feature will be customizable and modified in the future. 
-In general this program only needs some values for correct operation. 
+data => This column contains the extracted metadata.
+This field can be very large and bloating your SQLite db! -
+Maybe this feature will be customizable and modified in the future.
+In general this program only needs some values for correct operation.
 The rest is for your stuff...
 ```
 
@@ -289,7 +336,7 @@ scheme => The scheme used for this subscription (saves some time when iterating 
 subscription_name => friendly name (the channel/playlist name)
 
 subscription_path => The url to the playlist / channel.
-This url is prepared by the scheme. 
+This url is prepared by the scheme.
 This path is not necessarily the same as the url you passed (but could be the same...)
 
 passed_subscription_path => This is the url you passed to add the subscription

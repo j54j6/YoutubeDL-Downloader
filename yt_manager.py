@@ -29,7 +29,8 @@ import sys
 from project_functions import (show_help, direct_download, direct_download_batch,
                                scheme_setup, add_subscription, add_subscription_batch,
                                del_subscription, list_subscriptions, export_subscriptions,
-                               import_subscriptions, start, validate, export_items, import_items)
+                               import_subscriptions, start, validate, export_items, import_items,
+                               show_duplicate_files)
 from database_manager import check_db
 from config_handler import check_for_config
 
@@ -163,6 +164,8 @@ if len(sys.argv) > 1:
         case "validate":
             #Rehash all files and compare them to the already stored files. And look for files not registered in the db
             NO_ERROR = validate()
+        case "show-duplicates":
+            show_duplicate_files()
         case _:
             show_help()
             sys.exit(-1)
