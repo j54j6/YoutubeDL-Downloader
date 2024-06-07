@@ -910,6 +910,7 @@ def download_file(url, path, metadata=None, ignore_existing_url=False):
                 return_val["status"] = True
                 return return_val
             if not url_is_in_db["url_exist"]:
+                logger.debug("File is already in DB (name match) but url is not the same. Add url to entry!")
                 url_added = add_url_to_item_is_db(url_is_in_db["id"], url)
                 if not url_added:
                     logger.error("Error while adding url to file in DB!")
@@ -1059,16 +1060,13 @@ def download_missing():
             file_already_exist_in_db = fetch_value("items", [
                 {"file_name" : expected_filename["filename"]},
                 {"url": entry["url"]}],
-                ["id", "url", "tags", "data"])
+                ["id", "url", "tags", "data"], True)
 
             if(file_already_exist_in_db is not None and
                file_already_exist_in_db is not False and
                len(file_already_exist_in_db) > 0):
+                download_file_now = False
                 #Check if the file also exist on FS
-
-                logger.debug("""File %s already exist on db! -
-                             Redownload is enabled check for File on FS...""", entry["title"])
-
                 #Check if missing files should be redownlaoded automatically. If so do it here...
                 # This function is also used in the check() function but only based on
                 # db entries!
@@ -1077,6 +1075,8 @@ def download_missing():
                                     ["option_value"], True)
 
                 if redownload_missing_files:
+                    logger.debug("""File %s already exist on db! -
+                             Redownload is enabled check for File on FS...""", entry["title"])
 
                     expected_file_path = os.path.join(expected_path, expected_filename["filename"])
                     file_already_exist_on_fs = os.path.isfile(expected_file_path)
@@ -1086,6 +1086,7 @@ def download_missing():
                     else:
                         logger.debug("File also exist on FS - SKIP")
                         download_file_now = False
+                        downloaded += 1
                 else:
                     #Since files should not be redownloaded we will assume that the file exist
                     #on FS.
@@ -1095,47 +1096,16 @@ def download_missing():
                 #Check if all data are existing for the current file
                 # url = file_already_exist_in_db[1], tags = 2, data = 3
 
-                #check if url exist
-                url_exist = check_is_url_in_items_db(entry["url"], expected_filename, expected_path)
+                data_inserted = insert_missing_file_data_in_db(file_already_exist_in_db[0], entry["url"], file_metadata)
 
-                if url_exist["status"] and not url_exist["url_exist"]:
-                    logger.info("Add url to exissting db entry")
-                    url_added = add_url_to_item_is_db(url_exist["id"], entry["url"])
-
-                    if not url_added:
-                        logger.error("Error while adding url to file %s", expected_filename)
-
-                #check if tags wanted and exist
-                use_tags = fetch_value_as_bool("config", {"option_name": "use_tags_from_ydl"}, ["option_value"], True)
-
-                if use_tags:
-                    logger.info("YT-DL Tags are enabled")
-
-                    if file_already_exist_in_db[2] is None:
-                        file_metadata = get_metadata(metadata["url"], get_ydl_opts(expected_path))
-
-                        if file_metadata is not None:
-                            added_tags = update_value("items", {"tags": file_metadata}, {"file_name": expected_filename, "file_path": expected_path})
-                            if not added_tags:
-                                logging.error("Error while adding tags to %s", expected_filename)
-
-                #Check data (metadata)
-                if file_already_exist_in_db[3] is None:
-                    added_metadata = update_value("items", {"data": metadata}, {"file_name": expected_filename, "file_path": expected_path})
-                    if not added_metadata:
-                        logging.error("Error while adding metadata to %s", expected_filename)
+                if not data_inserted:
+                    logger.error("Error while inserting data!")
             else:
                 logger.info("New file %s will be downloaded", entry["title"])
 
 
             #If the file should not be downlaoded go to the next one
             if not download_file_now:
-                url_in_db = check_is_url_in_items_db(entry["url"], expected_filename["filename"], expected_path)
-
-                if url_in_db["status"]:
-                    if not url_in_db["url_exist"]:
-                        if not add_url_to_item_is_db(url_in_db["id"], entry["url"]):
-                            logger.error("Error while adding url to db!")
                 continue
 
             file_downloaded = direct_download(entry["url"], subscription_path)
@@ -2387,7 +2357,7 @@ def get_expected_filepath(metadata:dict, path:str):
     head, tail = os.path.split(filename)
     return {"filepath": head, "filename": tail}
 
-def check_is_url_in_items_db(url, filename=None, file_path=None):
+def check_is_url_in_items_db(url, filename=None, file_path=None, filename_is_id=False):
     """
         This functions checks if a given url exists in the items table under "url".
         This can be done for the whole table (filename=None) or for a specific file
@@ -2413,17 +2383,23 @@ def check_is_url_in_items_db(url, filename=None, file_path=None):
         fetched_urls = fetch_value("items", None, ["id", "file_name", "file_path", "url"])
     else:
         #Load only entry for the defined file
-        if file_path is None or filename is None:
-            logging.error("Filename and file path need to be specified!")
+        if filename is None and filename_is_id is False:
+            logging.error("Filename and filepath need to be specified!")
             return return_val
-        fetched_urls = fetch_value("items", {"file_name": filename, "file_path": file_path}, ["id", "file_name", "file_path", "url"])
+        if not filename_is_id:
+            logger.debug("Load file with name and path")
+            fetched_urls = fetch_value("items", {"file_name": filename, "file_path": file_path}, ["id", "file_name", "file_path", "url"])
+        else:
+           logger.debug("Load file with id")
+           fetched_urls = fetch_value("items", {"id": filename}, ["id", "file_name", "file_path", "url"])
+
 
     if fetched_urls is None or fetched_urls == [] or not isinstance(fetched_urls, list):
         logger.error("Error while loading urls!")
         return return_val
     for item_obj in fetched_urls:
         urls = item_obj[3]
-        if urls is None:
+        if urls is None or urls.strip() == "":
             #There are no urls provided for the current obj - SKIP
             continue
         try:
@@ -2474,7 +2450,7 @@ def add_url_to_item_is_db(item_id, url):
 
     #Item loaded - try to load url (json format)
     try:
-        if item[0] is not None:
+        if item[0] is not None and item[0].strip() != "":
             #Urls already defined
             urls = json.loads(item[0])
             urls = urls["url"]
@@ -2536,27 +2512,47 @@ def add_duplicate_file(hash_value, c_filename, c_filepath= None, db_id=None, db_
             duplicates_json = {}
 
     if duplicates_json == {}:
-        duplicates_json[hash_value] = [
-            {"file_id": db_id, "file_name": db_filename, "file_path": db_filepath},
-            {"file_id": None, "file_name": c_filename, "file_path": c_filepath}
-        ]
+        if (os.path.isfile(os.path.abspath(os.path.join(db_filepath, db_filename))) or
+            os.path.isfile(os.path.abspath(os.path.join(c_filepath, c_filename)))):
+            duplicates_json[hash_value] = [
+                {"file_id": db_id, "file_name": db_filename, "file_path": db_filepath},
+                {"file_id": None, "file_name": c_filename, "file_path": c_filepath}
+            ]
+        else:
+            logger.error("Can't add files to duplicate list - files does not exist on FS!")
+            if not os.path.isfile(os.path.abspath(os.path.join(db_filepath, db_filename))):
+                logger.info("Remove file from db - since it don't exist!")
+                delete_value("items", {"id": db_id})
+            
     else:
         if hash_value in duplicates_json:
             listing = duplicates_json[hash_value]
             found_same = False
+            new_listing = []
             for entry in listing:
+                if not os.path.isfile(os.path.abspath(os.path.join(entry["file_path"], entry["file_name"]))):
+                    logger.info("Remove file from db - since it don't exist!")
+                    delete_value("items", {"id": db_id})
+                else:
+                    new_listing.append({"file_id": entry["file_id"], "file_name": entry["file_name"], "file_path": entry["file_path"]})
+                
                 if entry["file_name"] == c_filename and entry["file_path"] == c_filepath:
                     found_same = True
 
             if not found_same:
-                entries:list = duplicates_json[hash_value]
-                entries.append({"file_id": None, "file_name": c_filename, "file_path": c_filepath})
-                duplicates_json[hash_value] = entries
+                new_listing.append({"file_id": None, "file_name": c_filename, "file_path": c_filepath})
+                duplicates_json[hash_value] = new_listing
+            else:
+                duplicates_json[hash_value] = new_listing
         else:
-            duplicates_json[hash_value] = [
-            {"file_id": db_id, "file_name": db_filename, "file_path": db_filepath},
-            {"file_id": None, "file_name": c_filename, "file_path": c_filepath}
-            ]
+            if not os.path.isfile(os.path.abspath(os.path.join(db_filepath, db_filename))):
+                    logger.info("Remove file from db - since it don't exist!")
+                    delete_value("items", {"id": db_id})
+            else:
+                duplicates_json[hash_value] = [
+                {"file_id": db_id, "file_name": db_filename, "file_path": db_filepath},
+                {"file_id": None, "file_name": c_filename, "file_path": c_filepath}
+                ]
 
     #Write into file
     duplicates_json = json.dumps(duplicates_json)
@@ -2618,3 +2614,66 @@ def show_duplicate_files():
     duplicate_table.add_row(['Found duplicates: ',number_of_duplicates,''])
     print(duplicate_table)
     return None
+
+def insert_missing_file_data_in_db(file_id, url, metadata):
+    """
+        This function is used as a helper.
+        If a file already exists in the database we need to check if
+        all information availiable are already inserted
+        mainly -> url, metadata and tags (if enabled)
+    """
+
+    #Fetch all data needed
+    db_entry = fetch_value("items", {"id": file_id}, ["url", "tags", "data"], True)
+
+    if db_entry is None:
+        logger.info("Cant fetch db entry!")
+        return False
+
+    logger.debug("Check if tags are allowed")
+    tags_enabled = fetch_value_as_bool("config",
+                                       {"option_name": "use_tags_from_ydl"},
+                                       ["option_value"], True)
+    error_occured = False
+    if tags_enabled:
+        logger.debug("Tags are enabled add...")
+        #Check if tags already added to db entry
+
+        if db_entry[1] is None or db_entry[1].strip() == "":
+            logger.debug("Tags not added - Add to db entry")
+
+            added_tags = update_value("items", {"tags": metadata["tags"]},
+                                      {"id": file_id})
+            if not added_tags:
+                logging.error("Error while adding tags to %s", file_id)
+                error_occured = True
+
+    #check if metadata added
+    if db_entry[2] is None or db_entry[1].strip() == "":
+        logger.debug("Tags not added - Add to db entry")
+
+        added_tags = update_value("items", {"data": metadata},
+                                  {"id": file_id})
+        if not added_tags:
+            logging.error("Error while adding tags to %s", file_id)
+            error_occured = True
+
+    #Check if url is in db
+    url_in_entry = check_is_url_in_items_db(url, file_id, None, True)
+
+    if not url_in_entry["status"]:
+        logger.error("Error while fetching url information from item!")
+        error_occured = True
+    else:
+        if not url_in_entry["url_exist"]:
+            url_added = add_url_to_item_is_db(file_id, url)
+
+            if not url_added:
+                logger.error("Error while adding url to item!")
+                error_occured = True
+
+    if not error_occured:
+        logging.info("No error during adding data")
+        return True
+    logging.error("Error while adding data")
+    return False

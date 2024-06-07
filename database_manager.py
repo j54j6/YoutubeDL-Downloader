@@ -406,31 +406,6 @@ def insert_value(table:str, data:dict):
 
     keys = ",".join(keys)
 
-    #OLD
-    #values = ""
-    #for value in data:
-    #    try:
-    #        if type(data[value]) == str:
-    #            escaped_str = str(data[value]).replace('"', '\\"')
-    #            values += f"\"{escaped_str}\","
-    #        elif type(data[value]) == dict or type(data[value]) == json:
-    #            try:
-    #                json_data = json.dumps(data[value])
-    #            except Exception as e:
-    #                logger.error(f"Error while dumping json content! - Error: {e}")
-    #                exit()
-    #            values += json_data+ ","
-    #        elif type(data[value]) == int:
-    #            values += data[value] +","
-    #        elif type(data(value)) == bool:
-    #            values += data[value] +","
-    #        else:
-    #            logger.warning(f"Unsuported type {type(data[value])} for value {value}!")
-    #            continue
-    #    except Exception as e:
-    #        logger.error("Error while converting ")
-    #values = values[:-1]
-
     values = []
     for value in data:
         try:
@@ -578,7 +553,7 @@ def update_value(table:str, data:dict, conditions:dict|list, extra_sql:str=None)
                       type(conditions))
     query = query + conditions_part + ";"
     logger.debug("Prepared Query: %s ", query)
-
+    logger.debug("Data %s", values)
     if extra_sql is not None:
         query += " " + extra_sql
     try:
