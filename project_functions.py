@@ -2649,8 +2649,8 @@ def insert_missing_file_data_in_db(file_id, url, metadata):
                 error_occured = True
 
     #check if metadata added
-if db_entry[2] is None or db_entry[1] is None or db_entry[1].strip() == "": # Check 1 and 2        logger.debug("Tags not added - Add to db entry")
-
+if db_entry[2] is None or db_entry[1] is None or db_entry[1].strip() == "": # Check 1 and 2        
+        logger.debug("Tags not added - Add to db entry")
         added_tags = update_value("items", {"data": metadata},
                                   {"id": file_id})
         if not added_tags:
