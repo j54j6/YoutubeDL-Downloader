@@ -63,7 +63,7 @@ jobs:
         shell: bash
       - name: Import subscription
         run: |
-          python3 ./yt_manager.py import-subscriptions ../ytdownloader/subscriptions_export.json True
+          python3 ./yt_manager.py import-subscriptions ./ytdownloader/subscriptions_export.json True
           EXIT_CODE=$?
           if [ $EXIT_CODE -eq 0 ]; then
             echo "Command succeeded with exit code 0"
