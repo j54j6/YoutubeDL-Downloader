@@ -476,7 +476,7 @@ def delete_value(table:str, conditions: dict|list, delete_all_content=False):
             conditions_part = conditions_part[:-4]
         query = query + conditions_part
     else:
-        query = f"TRUNCATE TABLE {table}"
+        query = f"DELETE FROM {table}"
     try:
         cursor = ENGINE.cursor()
         cursor.execute(query)
