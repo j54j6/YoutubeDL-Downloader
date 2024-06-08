@@ -126,8 +126,13 @@ if len(sys.argv) > 1:
         case "export-subscriptions":
             NO_ERROR = export_subscriptions()
         case "import-subscriptions":
-            if sys.argv[2] is not None:
+            if sys.argv[2] is not None and sys.argv[3] is None:
                 NO_ERROR = import_subscriptions(sys.argv[2])
+            elif sys.argv[2] is not None and sys.argv[3] is not None:
+                if sys.argv[3] == "True":
+                    NO_ERROR = import_subscriptions(sys.argv[2], True)
+                else:
+                    NO_ERROR = import_subscriptions(sys.argv[2])
             else:
                 logging.error("Please provide a path to import subscriptions")
                 show_help()

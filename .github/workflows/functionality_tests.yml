@@ -1,6 +1,6 @@
 name: Subscriptions
 
-on: 
+on:
   - push
   - pull_request
 
@@ -11,7 +11,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.10', '3.11', '3.12']
     runs-on: ${{matrix.os}}
-    
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -48,6 +48,45 @@ jobs:
             exit 1
           fi
         shell: bash
+      - name: Export subscription
+        run: |
+          python3 ./yt_manager.py export-subscriptions
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "Command succeeded with exit code 0"
+          elif [ $EXIT_CODE -eq -1 ]; then
+            echo "Command failed with exit code -1"
+          else
+            echo "Command exited with unexpected code $EXIT_CODE"
+            exit 1
+          fi
+        shell: bash
+      - name: Import subscription
+        run: |
+          python3 ./yt_manager.py import-subscriptions ../ytdownloader/subscriptions_export.json True
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "Command succeeded with exit code 0"
+          elif [ $EXIT_CODE -eq -1 ]; then
+            echo "Command failed with exit code -1"
+          else
+            echo "Command exited with unexpected code $EXIT_CODE"
+            exit 1
+          fi
+        shell: bash
+      - name: List Subscriptions (after import)
+        run: |
+          python3 ./yt_manager.py list-subscriptions
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "Command succeeded with exit code 0"
+          elif [ $EXIT_CODE -eq -1 ]; then
+            echo "Command failed with exit code -1"
+          else
+            echo "Command exited with unexpected code $EXIT_CODE"
+            exit 1
+          fi
+        shell: bash
       - name: Delete Subscription
         run: |
           python3 ./yt_manager.py del-subscription @PracticalEngineeringChannel
@@ -61,6 +100,5 @@ jobs:
             exit 1
           fi
         shell: bash
-      
-      
-    
+
+

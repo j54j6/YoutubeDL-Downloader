@@ -449,7 +449,7 @@ def insert_value(table:str, data:dict):
         logger.error("Statemet: Insert into  %s (%s) VALUES (?), %s", table, keys, values)
         return False
 
-def delete_value(table:str, conditions: dict|list):
+def delete_value(table:str, conditions: dict|list, delete_all_content=False):
     """ Delete a value from db. Conditions are passed as json with columnname as key
         and column value as value
 
@@ -458,23 +458,25 @@ def delete_value(table:str, conditions: dict|list):
         - False -> Failed
     """
     logging.debug("Remove from table %s", table)
+    if not delete_all_content:
+        query = f"DELETE FROM {table} WHERE "
+        conditions_part = ""
 
-    query = f"DELETE FROM {table} WHERE "
-    conditions_part = ""
-
-    if isinstance(conditions, dict):
-        for condition in conditions:
-            conditions_part += condition + f"=\"{conditions[condition]}\" AND "
-        conditions_part = conditions_part[:-5]
-    elif isinstance(conditions, list):
-        for condition_set in conditions:
-            #Iterate over all conditions
-            for condition in condition_set:
-                conditions_part += condition + f"=\"{condition_set[condition]}\" AND "
+        if isinstance(conditions, dict):
+            for condition in conditions:
+                conditions_part += condition + f"=\"{conditions[condition]}\" AND "
             conditions_part = conditions_part[:-5]
-            conditions_part += " OR "
-        conditions_part = conditions_part[:-4]
-    query = query + conditions_part
+        elif isinstance(conditions, list):
+            for condition_set in conditions:
+                #Iterate over all conditions
+                for condition in condition_set:
+                    conditions_part += condition + f"=\"{condition_set[condition]}\" AND "
+                conditions_part = conditions_part[:-5]
+                conditions_part += " OR "
+            conditions_part = conditions_part[:-4]
+        query = query + conditions_part
+    else:
+        query = f"TRUNCATE TABLE {table}"
     try:
         cursor = ENGINE.cursor()
         cursor.execute(query)
