@@ -2696,6 +2696,7 @@ def check_for_workdir(inner=False):
     if workdir is None:
         logger.error("Can't fetch workdir!")
         return False
+    workdir = workdir[0]
     workdir_exist = os.path.isdir(os.path.abspath(workdir))
     if workdir_exist is False and not inner:
         os.mkdir(os.path.abspath(workdir))
