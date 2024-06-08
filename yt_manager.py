@@ -30,7 +30,7 @@ from project_functions import (show_help, direct_download, direct_download_batch
                                scheme_setup, add_subscription, add_subscription_batch,
                                del_subscription, list_subscriptions, export_subscriptions,
                                import_subscriptions, start, validate, export_items, import_items,
-                               show_duplicate_files)
+                               show_duplicate_files, check_for_workdir)
 from database_manager import check_db
 from config_handler import check_for_config
 
@@ -87,6 +87,11 @@ logging.info("All mandatory tables are existing...")
 
 #args = parser.parse_args()
 
+#Check for workdir
+WORKDIR_EXIST = check_for_workdir()
+if not WORKDIR_EXIST:
+    logger.info("Workdir can't be created!")
+    sys.exit(-1)
 
 #Deciding action based on given arguments
 if len(sys.argv) > 1:

@@ -2685,3 +2685,25 @@ def insert_missing_file_data_in_db(file_id, url, metadata):
         return True
     logging.error("Error while adding data")
     return False
+
+def check_for_workdir(inner=False):
+    """
+        This function checks if the defined workdir in the db is existing
+    
+    """
+    workdir = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
+
+    if workdir is None:
+        logger.error("Can't fetch workdir!")
+        return False
+    workdir_exist = os.path.isdir(os.path.abspath(workdir))
+    if workdir_exist is False and not inner:
+        os.mkdir(os.path.abspath(workdir))
+        return check_for_workdir(True)
+    if workdir_exist is False and inner:
+        logger.error("Error while creating workdir! - Check permissions")
+        return False
+
+    if workdir_exist:
+        return True
+    return False
