@@ -908,7 +908,7 @@ def download_file(url, path, metadata=None, ignore_existing_url=False):
         #Check if video (path) is in db
 
         file_in_db = fetch_value("items", {"file_path": path, "file_name": filename}, ["file_path"], True)
-        if  file_in_db is not None:
+        if file_in_db is not None:
             logging.info("Video already exists in DB! - check if url exist")
             url_is_in_db = check_is_url_in_items_db(url, filename, path)
             if not url_is_in_db["status"]:
@@ -1179,7 +1179,7 @@ def save_file_to_db(scheme_data, full_file_path, file_hash, url, metadata):
     scheme_path = scheme_data["scheme_path"]
 
     hash_exist = fetch_value("items", {"file_hash": file_hash}, ["id", "file_name", "file_path"], True)
-    if  hash_exist is not None:
+    if hash_exist is not None:
         logger.debug("File hash already exist in DB! - Skip saving File")
         return_val["file_id"] = hash_exist[0]
         return_val["file_name"] = hash_exist[1]
@@ -2176,7 +2176,7 @@ def decide_storage_path(url, scheme, is_subscription=False):
                 if not is_subscription:
                     return base_path
                 return os.path.join(base_path, subscription_name)
-            category_dst_path =  inner_decide_path(base_path)
+            category_dst_path = inner_decide_path(base_path)
 
             if not category_dst_path:
                 return None
@@ -2689,7 +2689,7 @@ def insert_missing_file_data_in_db(file_id, url, metadata):
 def check_for_workdir(inner=False):
     """
         This function checks if the defined workdir in the db is existing
-    
+
     """
     workdir = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
 

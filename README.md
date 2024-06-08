@@ -2,7 +2,7 @@
 
 [![GPLv3 License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://opensource.org/licenses/)
 
-[![CodeFactor](https://www.codefactor.io/repository/github/j54j6/youtubedl-dowloader/badge)](https://www.codefactor.io/repository/github/j54j6/youtubedl-dowloader)
+[![CodeFactor](https://www.codefactor.io/repository/github/j54j6/youtubedl-downloader/badge)](https://www.codefactor.io/repository/github/j54j6/youtubedl-dowloader)
 
 
 
