@@ -15,7 +15,8 @@
             "subscription_content_count": {"type": "integer", "not_null": true},
             "subscription_has_new_data": {"type": "integer", "not_null": true, "default": "1"},
             "current_subscription_data": {"type": "text", "not_null": true},
-            "last_subscription_data": {"type": "text"}
+            "last_subscription_data": {"type": "text"},
+            "output_format": {"type": "text"}
         }
     }
 }
