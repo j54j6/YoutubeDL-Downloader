@@ -53,9 +53,15 @@
                     "raw": ""
                 },
                 {
+                    "enabled": false,
+                    "profile_name": "mp3",
+                    "comment": "This profile will download only mp3",
+                    "format": "mp3"
+                },
+                {
                     "enabled": true,
-                    "profile_name": "best format",
-                    "comment": "This profile downloads always the best possible format",
+                    "profile_name": "best_format",
+                    "comment": "This profile downloads always the best possible format (Default)",
                     "format": "best"
                 }
             ]}
