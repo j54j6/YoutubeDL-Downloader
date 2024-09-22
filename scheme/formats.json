@@ -1,0 +1,74 @@
+{
+    "schema_name": "format_profiles",
+    "url_template": false,
+    "db": {
+        "table_needed": true,
+        "table_name": "format_profiles",
+        "columns": {
+            "id": {"type": "integer", "primary_key": true, "auto_increment": true, "not_null": true, "unique": false},
+            "profile_name": {"type": "text", "not_null": true, "unique": true},
+            "enabled": {"type": "integer", "not_null": true, "default": "0"},
+            "datecreated": {"type": "DATETIME", "default": "CURRENT_TIMESTAMP"},
+            "comment": {"type": "text", "not_null": false},
+            "use_raw": {"type": "integer", "default": "0"},
+            "format": {"type": "text", "not_null": true},
+            "options": {"type": "text"},
+            "raw": {"type": "text"}
+
+        },
+        "row_exist_value": "profile_name",
+        "rows": [
+            {
+                "enabled": "0",
+                "profile_name": "mp4_1080p",
+                "comment": "This profile downloads a mp4 with a pixel height of 1080",
+                "use_raw": "0",
+                "format": "mp4",
+                "options": "[\"height=1080\"]",
+                "raw": ""
+            },
+            {
+                "enabled": 0,
+                "profile_name": "mp4_360",
+                "comment": "This profile downloads a mp4 with a pixel height of 360",
+                "use_raw": 0,
+                "format": "mp4",
+                "options": "[\"height=360\"]",
+                "raw": ""
+            },
+            {
+                "enabled": 0,
+                "profile_name": "mp4_240",
+                "comment": "This profile downloads a mp4 with a pixel height of 240",
+                "use_raw": 0,
+                "format": "mp4",
+                "options": "[\"height=240\"]",
+                "raw": ""
+            },
+            {
+                "enabled": 0,
+                "profile_name": "opus",
+                "comment": "This profile will download only opus",
+                "format": "opus"
+            },
+            {
+                "enabled": 0,
+                "profile_name": "m4a",
+                "comment": "This profile will download only m4a",
+                "format": "m4a"
+            },
+            {
+                "enabled": 1,
+                "profile_name": "best_format",
+                "comment": "This profile downloads always the best possible format (Default)",
+                "format": "best"
+            },
+            {
+                "enabled": 0,
+                "profile_name": "best_audio",
+                "comment": "This profile downloads always the best possible audio format",
+                "format": "best_audio"
+            }
+        ]
+    }
+}
