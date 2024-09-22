@@ -1,5 +1,4 @@
 
-
 [![GPLv3 License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://opensource.org/licenses/)
 
 [![CodeFactor](https://www.codefactor.io/repository/github/j54j6/youtubedl-downloader/badge)](https://www.codefactor.io/repository/github/j54j6/youtubedl-dowloader)
@@ -35,6 +34,7 @@ For Reference please look in the project.json section
 - Create and import Backups
 - Validate your FS
 - Show duplicates
+- Format profiles (globally and per custom download / subscription)
 
 # Currently supported Sites
 - Pinterest
@@ -70,22 +70,22 @@ Options:
 ```
 With the provided command only subscriptions created with the youtube or reddit scheme are shown.  If no filter is passed all subscriptions will be shown like below. If the scheme changes a divider is inserted
 ```
-+----+----------------+---------+---------------+-------------------+---------------------+------------------------------------------------------+
-| ID | Name           | Scheme  | Avail. Videos | Downloaded Videos |     Last checked    | url                                                  |
-+----+----------------+---------+---------------+-------------------+---------------------+------------------------------------------------------+
-| 1  | test           | reddit  |       29      |         0         | 2024-05-19 11:59:55 | https://reddit.com/                                  |
-+----+----------------+---------+---------------+-------------------+---------------------+------------------------------------------------------+
-| 2  | @AlexiBexi     | youtube |      828      |         0         | 2024-05-19 12:07:04 | https://www.youtube.com/@AlexiBexi/videos            |
-| 3  | @Lohntsichdas  | youtube |      181      |         0         | 2024-05-19 14:28:50 | https://www.youtube.com/@Lohntsichdas/videos         |
-| 4  | @Finanzfluss   | youtube |      635      |         0         | 2024-05-19 14:29:05 | https://www.youtube.com/@Finanzfluss/videos          |
-| 5  | @DoktorWhatson | youtube |      288      |         0         | 2024-05-19 14:29:25 | https://www.youtube.com/@DoktorWhatson/videos        |
-+----+----------------+---------+---------------+-------------------+---------------------+------------------------------------------------------+
++----+----------------+---------+---------------+-------------------+---------------------+------------------------------------------------------+---------------
+| ID | Name           | Scheme  | Avail. Videos | Downloaded Videos |     Last checked    | url                                                  |output-format |
++----+----------------+---------+---------------+-------------------+---------------------+------------------------------------------------------+--------------+
+| 1  | test           | reddit  |       29      |         0         | 2024-05-19 11:59:55 | https://reddit.com/                                  |m4a           |
++----+----------------+---------+---------------+-------------------+---------------------+------------------------------------------------------+--------------+
+| 2  | @AlexiBexi     | youtube |      828      |         0         | 2024-05-19 12:07:04 | https://www.youtube.com/@AlexiBexi/videos            |              |
+| 3  | @Lohntsichdas  | youtube |      181      |         0         | 2024-05-19 14:28:50 | https://www.youtube.com/@Lohntsichdas/videos         |              |
+| 4  | @Finanzfluss   | youtube |      635      |         0         | 2024-05-19 14:29:05 | https://www.youtube.com/@Finanzfluss/videos          |              |
+| 5  | @DoktorWhatson | youtube |      288      |         0         | 2024-05-19 14:29:25 | https://www.youtube.com/@DoktorWhatson/videos        |              |
++----+----------------+---------+---------------+-------------------+---------------------+------------------------------------------------------+--------------+
 ```
 
 ### Add Subscriptions
 To add a subscription the overview url of the channel/playlist is needed. For example:
 ```
-        yt_manager.py add-subscription https://www.youtube.com/@AlexiBexi/
+        yt_manager.py add-subscription https://www.youtube.com/@AlexiBexi/ --output-format <<format>>
 ```
 or if you want to add multiple
 ```
@@ -113,6 +113,46 @@ or
 ```
         yt_manager.py del-subscription https://www.youtube.com/@AlexiBexi
 ```
+
+# Format handling
+If you want to change the output format you can create profiles (or use the pre defined ones)... 
+Currently you can only edit / add profiles in the db or add them manually inside the "formats.json" file. TZhe program will import the data automatically
+
+You can define the output format in different ways:
+  ## General Info
+  In any case: If you define an output profile (for custom downlaods or subscriptions) they overrule all other settings!
+  ### Subscriptions:
+  If you create a new subscription you can pass the "--output-format" flag and pass a profile in which all data will be downloaded (list is possible)
+  ### Custom downlaods
+  For custom videos you can also pass the "--output-format" flag to define the output format
+
+  ### Nothing passed (Global)
+  If nothing is passed you need to use the global settings. Profiles can be enabled or disabled. If enabled
+  all filedownloads without explicit output format passed will be downloaded using ALL enabled profiles. 
+  You can have multiple profiles enabled at the same time!
+  ### Fallback
+  The fallback if something breaks is "best"... You can change it in the config.ini file!
+
+  ## Commands
+  ### Show defined profiles and states
+
+  This command allows you to list all available profiles and see if profiles are enabled or disabled
+  ```
+        yt_manager.py show-format-profiles
+  ```
+
+  ### Disable a profile (globally)
+  You can disable profiles for global use (not counted for subscriptions!)
+  ```
+        yt_manager.py disable-format-profile <<name>>
+  ```
+
+  ### Enable a profile (globally)
+  You can enable profiles by using this command. Important: Multiple profiles can be active. You can use the 
+  optional flag "only_active" to disable all other enabled profiles!
+  ```
+        yt_manager.py enable-format-profile <<name>> --only_active
+  ```
 
 ## Backup functionalities
 ### Export Subscriptions
@@ -168,7 +208,7 @@ A batch mode is planned but not implemented yet!
 
 Example use:
 ```
-        yt_manager.py custom https://www.youtube.com/watch?v=gE_FuQuaKc0
+        yt_manager.py custom https://www.youtube.com/watch?v=gE_FuQuaKc0 --output-format <<format>>
 ```
 or if you want to download multiple links
 ```
@@ -366,5 +406,3 @@ subscription_data => metadata of the subscription. This field can be very very l
  - [TLDExtract](https://github.com/john-kurkowski/tldextract)
  - [Validators](https://github.com/python-validators)
  - [Awesome Readme Templates](https://awesomeopensource.com/project/elangosundar/awesome-README-templates)
-
-
