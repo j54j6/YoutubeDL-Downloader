@@ -23,19 +23,20 @@
 # Python Modules
 import logging
 import sys
-#import argparse
+import argparse
 
 # Own Modules
 from project_functions import (show_help, direct_download, direct_download_batch,
                                scheme_setup, add_subscription, add_subscription_batch,
                                del_subscription, list_subscriptions, export_subscriptions,
                                import_subscriptions, start, validate, export_items, import_items,
-                               show_duplicate_files, check_for_workdir)
+                               show_duplicate_files, check_for_workdir, 
+                               show_profiles, enable_profile, disable_profile)
 from database_manager import check_db
 from config_handler import check_for_config
 
 #Version
-CURRENT_VERSION = 20240604
+CURRENT_VERSION = 20240921
 
 
 # Init. Logging
@@ -93,95 +94,135 @@ if not WORKDIR_EXIST:
     logger.info("Workdir can't be created!")
     sys.exit(-1)
 
-#Deciding action based on given arguments
-if len(sys.argv) > 1:
-    #Command provided
-    NO_ERROR = True
-    match sys.argv[1]:
-        case "help":
-            #provide help
-            show_help()
-            sys.exit(1)
-        case "add-subscription":
-            #Add a new subscription
-            if len(sys.argv) >= 3 and len(sys.argv) <= 5:
-                if str(sys.argv[2]).lower() != "batch":
-                    NO_ERROR = add_subscription(sys.argv[2])
-                else:
-                    NO_ERROR = add_subscription_batch(sys.argv[3])
-            else:
-                logging.error("No url provided!")
-                show_help()
-                sys.exit(-1)
-        case "del-subscription":
-            #Delete a subscription
-            if len(sys.argv) == 3:
-                NO_ERROR = del_subscription(sys.argv[2])
-            else:
-                logging.error("No url provided!")
-                show_help()
-                sys.exit(-1)
-        case "list-subscriptions":
-            #Show all subscriptions
-            if len(sys.argv) == 3:
-                filter_list = list(sys.argv[2].split(","))
-                NO_ERROR = list_subscriptions(filter_list)
-            else:
-                NO_ERROR = list_subscriptions(None)
-        case "export-subscriptions":
-            NO_ERROR = export_subscriptions()
-        case "import-subscriptions":
-            if sys.argv[2] is not None and sys.argv[3] is None:
-                NO_ERROR = import_subscriptions(sys.argv[2])
-            elif sys.argv[2] is not None and sys.argv[3] is not None:
-                if sys.argv[3] == "True":
-                    NO_ERROR = import_subscriptions(sys.argv[2], True)
-                else:
-                    NO_ERROR = import_subscriptions(sys.argv[2])
-            else:
-                logging.error("Please provide a path to import subscriptions")
-                show_help()
-                sys.exit(-1)
-        case "export-items":
-            NO_ERROR = export_items()
-        case "import-items":
-            if sys.argv[2] is not None:
-                NO_ERROR = import_items(sys.argv[2])
-            else:
-                logging.error("Please provide a path to import items")
-                show_help()
-                sys.exit(-1)
-        case "backup":
-            NO_ERROR = export_subscriptions()
+def convert_to_list(val) -> list[str]:
+    """ This function is used to convert the user input to a list of strings"""
+    if isinstance(val, list):
+        return val
+    elif isinstance(val, str):
+        return val.split(",")
+    raise argparse.ArgumentTypeError(f"Invalid format: {val} . Expected a list or a comma-separated string.")
+
+
+
+#CLI
+
+def main():
+    """ The main function provides the CLI"""
+    parser = argparse.ArgumentParser(description="YT-Download Manager by j54j6")
+
+    # Subcommands
+    subparsers = parser.add_subparsers(dest="command")
+
+    subparsers.add_parser("help", help="Show help information")
+
+    # Add subscription command
+    add_sub = subparsers.add_parser("add-subscription", help="Add a new subscription")
+    add_sub.add_argument("url", help="URL of the subscription")
+    add_sub.add_argument("--batch", help="Add subscriptions in batch mode", nargs="?", const=True)
+    add_sub.add_argument(
+        "--output-format",
+        help="Specify the output format",
+        nargs="?",  # Optional argument
+        const=None,  # Default to 'NONE' if --output-profile is provided without a value
+        type=convert_to_list
+    )
+
+    # Delete subscription command
+    del_sub = subparsers.add_parser("del-subscription", help="Delete a subscription")
+    del_sub.add_argument("url", help="URL of the subscription")
+
+    # List subscriptions command
+    list_sub = subparsers.add_parser("list-subscriptions", help="List all subscriptions")
+    list_sub.add_argument("filter", help="Filter for subscription list", nargs="?")
+
+    subparsers.add_parser("export-subscriptions", help="Export all subscriptions")
+
+    import_sub = subparsers.add_parser("import-subscriptions", help="Import subscriptions")
+    import_sub.add_argument("path", help="Path to the file")
+    import_sub.add_argument("--overwrite", help="Overwrite existing subscriptions", nargs="?", const=True)
+
+    subparsers.add_parser("export-items", help="Export all items")
+
+    import_items_parser = subparsers.add_parser("import-items", help="Import items")
+    import_items_parser.add_argument("path", help="Path to the file")
+
+    subparsers.add_parser("backup", help="Create a backup of subscriptions and items")
+
+    custom = subparsers.add_parser("custom", help="Download a custom item")
+    custom.add_argument("url", help="URL of the item")
+    custom.add_argument("--batch", help="Download in batch mode", nargs="?", const=True)
+    custom.add_argument(
+    "--output-format",
+    help="Specify the output format",
+    nargs="?",  # Optional argument
+    const=None,  # Default to 'NONE' if --output-profile is provided without a value
+    type=convert_to_list
+    )
+
+    subparsers.add_parser("start", help="Run the script to check for new content and download it")
+
+    subparsers.add_parser("validate", help="Rehash all files and compare them to stored files")
+
+    subparsers.add_parser("show-duplicates", help="Show duplicate files")
+
+    subparsers.add_parser("show-format-profiles", help="Show all currently defined profiles to define the output format")
+    
+    en_format_profile = subparsers.add_parser("enable-format-profile", help="Enable a specific format profile (globally)")
+    en_format_profile.add_argument("profile_name", help="Profilename of the intended profile")
+    en_format_profile.add_argument("--only_active", help="If this is true, all other profiles will be disabled", const=False, nargs="?")
+
+    dis_format_profile = subparsers.add_parser("disable-format-profile", help="Disable a specific format profile (globally)")
+    dis_format_profile.add_argument("profile_name", help="Profilename of the intended profile")
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Command mapping to functions
+    commands = {
+        "help": show_help,
+        "add-subscription": lambda: (
+            add_subscription_batch(file=args.url, output_format=args.output_format) if args.batch else add_subscription(url=args.url, output_format=args.output_format)
+        ) if args.output_format is not None else (
+            add_subscription_batch(args.url) if args.batch else add_subscription(args.url)
+        ),
+        "del-subscription": lambda: del_subscription(args.url),
+        "list-subscriptions": lambda: list_subscriptions(list(args.filter.split(",")) if args.filter else None),
+        "export-subscriptions": export_subscriptions,
+        "import-subscriptions": lambda: import_subscriptions(args.path, args.overwrite),
+        "export-items": export_items,
+        "import-items": lambda: import_items(args.path),
+        "backup": lambda: export_subscriptions() and export_items(),
+        "custom":  lambda: (
+                                direct_download_batch(args.url, args.output_format) if args.batch 
+                                else direct_download(args.url, None, args.output_format)
+                            ) if args.output_format is not None else (
+                                direct_download_batch(args.url) if args.batch 
+                                else direct_download(args.url)
+                            ),
+        "start": start,
+        "validate": validate,
+        "show-duplicates": show_duplicate_files,
+        "show-format-profiles": show_profiles,
+        "enable-format-profile": lambda: enable_profile(args.profile_name, args.only_active),
+        "disable-format-profile": lambda: disable_profile(args.profile_name),
+    }
+
+    # Execute the command
+    command_func = commands.get(args.command)
+    if command_func:
+        try:
+            NO_ERROR = command_func()
             if NO_ERROR:
-                NO_ERROR = export_items()
-                logging.info("Backup successfully created")
-        case "custom":
-            #Download a custom Item without being part of a subscription
-            #parser = argparse
-            if len(sys.argv) >= 3 and len(sys.argv) <= 4:
-                if str(sys.argv[2]).lower() != "batch":
-                    NO_ERROR = direct_download(sys.argv[2])
-                else:
-                    NO_ERROR = direct_download_batch(sys.argv[3])
+                sys.exit(0)
             else:
-                logging.error("No url provided!")
-                show_help()
-                sys.exit(-1)
-        case "start":
-            #Run the script to check for new content and download it
-            NO_ERROR = start()
-        case "validate":
-            #Rehash all files and compare them to the already stored files. And look for files not registered in the db
-            NO_ERROR = validate()
-        case "show-duplicates":
-            show_duplicate_files()
-        case _:
-            show_help()
-            sys.exit(-1)
-    if NO_ERROR:
-        sys.exit(0)
-    sys.exit(-1)
-else:
-    show_help()
-    sys.exit(-1)
+                logging.error("Command execution failed.")
+                sys.exit(1)
+        except Exception as e:
+            logging.error(f"An error occurred: {str(e)}")
+            sys.exit(1)
+    else:
+        logging.error("Invalid command. Showing help.")
+        show_help()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
