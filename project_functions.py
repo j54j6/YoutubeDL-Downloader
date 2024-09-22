@@ -506,7 +506,15 @@ def import_subscriptions(path="./", delelte_current_subscriptions=False):
         error_raised = False
         failed_imports = []
         for subscription in subscriptions:
-            format_list = json.loads(subscription["output_format"])
+            try:
+                if subscription["output_format"] is not None and len(subscription["output_format"]) > 0:
+                    format_list = json.loads(subscription["output_format"])
+                else:
+                    format_list = None
+            except json.JSONDecodeError:
+                logger.error("Error while inserting output format for subscription! - Use NONE!")
+                format_list = None
+            
             success = add_subscription(subscription["subscription_path"],
                                        subscription["downloaded_content_count"],
                                        subscription["subscription_last_checked"],
