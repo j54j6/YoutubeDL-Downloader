@@ -37,7 +37,7 @@ from yt_dlp import YoutubeDL, DownloadError
 
 #own modules
 from database_manager import (check_table_exist, create_table, update_value,
-                insert_value, fetch_value, fetch_value_as_bool, delete_value)
+                insert_value, fetch_value, fetch_value_as_bool, delete_value, check_scheme_match)
 
 from config_handler import config
 # init logger
@@ -69,7 +69,7 @@ def start():
 
 ################# Subscription related
 
-def add_subscription(url:str, downloaded:int = None, last_checked = None, meta_data = None):
+def add_subscription(url:str, downloaded:int = None, last_checked = None, meta_data = None, output_format:list[str] = None):
     """ Add a subscription to the database
 
         Return Values:
@@ -89,12 +89,19 @@ def add_subscription(url:str, downloaded:int = None, last_checked = None, meta_d
                     subscription_exist[1], subscription_exist[2])
         return True
 
-    subscription_obj = get_subscription_data_obj(url, downloaded, last_checked, meta_data)
-
+    #Check if the defined outputformat exists (if it is not none)
+    if output_format is not None:
+        for desired_format in output_format:
+            if not check_format_profile_exist(desired_format):
+                logger.error("The specified format %s is not a valid format profile!", desired_format)
+                return False
+            
+    subscription_obj = get_subscription_data_obj(url, downloaded, last_checked, meta_data, output_format)
+   
     if not subscription_obj["status"]:
         logger.error("Error while creating subscription obj!")
         return False
-
+    
     #Check if the formatted link is already in db - This is url should every time the same
     if subscription_obj["exist_in_db"]:
         logger.info("%s subscription for %s already exists!", subscription_exist[1],
@@ -111,7 +118,7 @@ def add_subscription(url:str, downloaded:int = None, last_checked = None, meta_d
                 subscription_obj["obj"]["subscription_name"])
     return True
 
-def add_subscription_batch(file:str):
+def add_subscription_batch(file:str, output_format:list[str] = None):
     """ Add a subscription to the database using a file
 
         Return Values:
@@ -127,7 +134,7 @@ def add_subscription_batch(file:str):
     with open(file, 'r', encoding="UTF-8") as input_file:
         for line in input_file:
             line = line.strip()
-            if not add_subscription(line):
+            if not add_subscription(line, output_format):
                 failed = True
 
     if not failed:
@@ -196,7 +203,8 @@ def list_subscriptions(scheme_filter:list=None):
                                         "subscription_content_count",
                                         "downloaded_content_count",
                                         "subscription_last_checked",
-                                        "subscription_path"
+                                        "subscription_path",
+                                        "output_format"
                                     ], extra_sql="ORDER BY scheme")
 
     else:
@@ -214,7 +222,8 @@ def list_subscriptions(scheme_filter:list=None):
                                         "subscription_content_count",
                                         "downloaded_content_count",
                                         "subscription_last_checked",
-                                        "subscription_path"
+                                        "subscription_path",
+                                        "output_format"
                                     ], extra_sql="ORDER BY scheme")
 
     if subscriptions is None:
@@ -222,7 +231,7 @@ def list_subscriptions(scheme_filter:list=None):
         return False
 
     subscriptions_table = PrettyTable(
-        ['ID', 'Name', 'Scheme', 'Avail. Videos', 'Downloaded Videos', 'Last checked', 'url'])
+        ['ID', 'Name', 'Scheme', 'Avail. Videos', 'Downloaded Videos', 'Last checked', 'url', 'format'])
     subscriptions_table.align['ID'] = "c"
     subscriptions_table.align['Name'] = "l"
     subscriptions_table.align['Scheme'] = "l"
@@ -230,6 +239,7 @@ def list_subscriptions(scheme_filter:list=None):
     subscriptions_table.align['Downloaded Videos'] = "c"
     subscriptions_table.align['Last checked'] = "c"
     subscriptions_table.align['url'] = "l"
+    subscriptions_table.align['format'] = "c"
     video_is = 0
     video_should = 0
     for index, subscription in enumerate(subscriptions):
@@ -247,6 +257,10 @@ def list_subscriptions(scheme_filter:list=None):
 
         if enable_divider:
             logger.debug("For ID %s no divider needed!", subscription[0])
+            if subscription[7] is None:
+                output_format = "global"
+            else:
+                output_format = subscription[7]
             subscriptions_table.add_row([
                 subscription[0],
                 subscription[1],
@@ -254,10 +268,15 @@ def list_subscriptions(scheme_filter:list=None):
                 subscription[3],
                 subscription[4],
                 subscription[5],
-                subscription[6]],
+                subscription[6],
+                output_format],
                 divider=True)
         else:
             logger.debug("For ID %s no divider needed!", subscription[0])
+            if subscription[7] is None:
+                output_format = "global"
+            else:
+                output_format = subscription[7]
             subscriptions_table.add_row([
                 subscription[0],
                 subscription[1],
@@ -265,11 +284,12 @@ def list_subscriptions(scheme_filter:list=None):
                 subscription[3],
                 subscription[4],
                 subscription[5],
-                subscription[6]],
+                subscription[6],
+                output_format],
                 divider=False)
         enable_divider = False
 
-    subscriptions_table.add_row(["Total: ",len(subscriptions),'',video_should,video_is,'',''])
+    subscriptions_table.add_row(["Total: ",len(subscriptions),'',video_should,video_is,'','', ''])
 
     print(subscriptions_table)
     return True
@@ -416,7 +436,8 @@ def export_subscriptions():
                                                         "subscription_last_checked",
                                                         "downloaded_content_count",
                                                         "last_subscription_data",
-                                                        "subscription_name"])
+                                                        "subscription_name",
+                                                        "output_format"])
 
     if subscriptions is None:
         logging.error("Error while fetching subscriptions")
@@ -428,7 +449,8 @@ def export_subscriptions():
             "subscription_last_checked": subscription[1],
             "downloaded_content_count": subscription[2],
             "last_subscription_data": subscription[3],
-            "subscription_name": subscription[4]
+            "subscription_name": subscription[4],
+            "output_format": subscription[5]
         }
         exported_subscriptions.append(subscription_obj)
     base_path = fetch_value("config", {"option_name": "base_location"}, ["option_value"], True)
@@ -487,7 +509,8 @@ def import_subscriptions(path="./", delelte_current_subscriptions=False):
             success = add_subscription(subscription["subscription_path"],
                                        subscription["downloaded_content_count"],
                                        subscription["subscription_last_checked"],
-                                       subscription["last_subscription_data"])
+                                       subscription["last_subscription_data"],
+                                       subscription["output_format"])
             if not success:
                 error_raised = True
                 failed_imports.append(subscription["subscription_name"])
@@ -648,7 +671,7 @@ def create_subscription_url(url:str, scheme:json):
     return_val["status"] = True
     return return_val
 
-def get_subscription_data_obj(url:str, downloaded = None, last_checked=None, last_metadata=None):
+def get_subscription_data_obj(url:str, downloaded = None, last_checked=None, last_metadata=None, output_format=None):
     """ Returns a dict containing all information about a subscription (db obj) and
         also if the url already exist in db
 
@@ -656,7 +679,7 @@ def get_subscription_data_obj(url:str, downloaded = None, last_checked=None, las
         {
             "status": False, -> Operation successfull? - Use this as probe!
             "exist_in_db": False, -> Does the subscription already exist?
-            "obj": { -> The subscription object. This can directly passed to SQL Engine
+            "obj": { -> The subscription object. This can directly passed to the SQL Engine
                 "scheme": None, -> Which scheme is used
                 "subscription_name": None, -> friendly name - most likly playlist/channel name
                 "subscription_path": None, -> function created url to the website
@@ -682,7 +705,8 @@ def get_subscription_data_obj(url:str, downloaded = None, last_checked=None, las
             "subscription_content_count": None,
             "current_subscription_data": None,
             "last_subscription_data": None,
-            "downloaded_content_count": None
+            "downloaded_content_count": None,
+            "output_format": output_format
         }
 
 
@@ -726,6 +750,7 @@ def get_subscription_data_obj(url:str, downloaded = None, last_checked=None, las
     obj["subscription_path"] = subscription_data["formed_subscription_url"]
     obj["subscription_content_count"] = metadata["playlist_count"]
     obj["current_subscription_data"] = metadata
+    obj["output_format"] = output_format
 
     if downloaded is not None and downloaded > 0:
         obj["downloaded_content_count"] = downloaded
@@ -733,7 +758,6 @@ def get_subscription_data_obj(url:str, downloaded = None, last_checked=None, las
         obj["subscription_last_checked"] = last_checked
     if last_metadata is not None:
         obj["last_subscription_data"] = last_metadata
-
 
     subscription_entry["obj"] = obj
 
@@ -779,7 +803,7 @@ def fetch_subscription_name(url:str, scheme:json):
 
 ################# Download functions
 
-def direct_download_batch(file:str):
+def direct_download_batch(file:str, output_format:list[str] = None):
     """ This function represents the "manual" video download approach but using a batch file
         You can pass an url and the file will be downlaoded, hashed and registered.
 
@@ -798,7 +822,7 @@ def direct_download_batch(file:str):
     with open(file, 'r', encoding="UTF-8") as input_file:
         for line in input_file:
             line = line.strip()
-            if not direct_download(line):
+            if not direct_download(line, output_format):
                 failed = True
 
     if not failed:
@@ -808,7 +832,7 @@ def direct_download_batch(file:str):
     return False
 
 #This function is called from CLI
-def direct_download(url:str, own_file_data:dict=None):
+def direct_download(url:str, own_file_data:dict=None, output_format:list[str] = None):
     """ This function represents the "manual" video download approach
         You can pass an url and the file will be downlaoded, hashed and registered.
 
@@ -820,12 +844,14 @@ def direct_download(url:str, own_file_data:dict=None):
     #Line Break for Pylint #C0301
     logger.info("""Directly download content from %s -
                 Check prerequisites and prepare download data""", url)
+    
+    if output_format is not None:
+        logging.debug("Try to use passed format %s", output_format)
 
     if not own_file_data:
         prepared_data = prepare_scheme_dst_data(url)
     else:
         prepared_data = own_file_data
-
 
     if prepared_data["status"] != 1:
         logger.error("Error while preparing download! - Check log.")
@@ -835,7 +861,7 @@ def direct_download(url:str, own_file_data:dict=None):
 
     logger.info("File will be saved under: %s", path)
 
-    downloaded = download_file(url, path)
+    downloaded = download_file(url=url, path=path, output_format=output_format)
 
     if not downloaded["status"]:
         logger.error("Error while downloading file from %s - Please check log!", url)
@@ -876,7 +902,7 @@ def direct_download(url:str, own_file_data:dict=None):
     return True
 
 #This function will actually download a file...
-def download_file(url, path, metadata=None, ignore_existing_url=False):
+def download_file(url, path, metadata=None, ignore_existing_url=False, output_format:list[str] = None):
     """This function downloads the file specified in url and also provides the prepared
         file path from ydl
 
@@ -892,33 +918,39 @@ def download_file(url, path, metadata=None, ignore_existing_url=False):
         }
     """
     return_val = {"status": False, "full_file_path": None, "filename": None, "metadata": None}
-    metadata = get_metadata(url, get_ydl_opts(path))
+    metadata = get_metadata(url, get_ydl_opts(path, None, output_format))
     if metadata is None:
             logging.error("Error while fetching metadata to check if video already exists in db! - Continue without checking")
             return return_val
 
-    full_file_path = YoutubeDL(get_ydl_opts(path)).prepare_filename(metadata,
+
+    full_file_path = YoutubeDL(get_ydl_opts(path, None, output_format)).prepare_filename(metadata,
                                                                       outtmpl=path +
                                                                       '/%(title)s.%(ext)s')
 
     filename = os.path.basename(full_file_path).split(os.path.sep)[-1]
     return_val["full_file_path"] = full_file_path
     return_val["filename"] = filename
+
     if not ignore_existing_url:
         #Check if video (path) is in db
-
+        logger.debug("Check if file already exists in db")
+        
         file_in_db = fetch_value("items", {"file_path": path, "file_name": filename}, ["file_path"], True)
         if file_in_db is not None:
             logging.info("Video already exists in DB! - check if url exist")
+            
             url_is_in_db = check_is_url_in_items_db(url, filename, path)
             if not url_is_in_db["status"]:
                 logger.error("Error while checking if url is in db!")
+                
                 #Since the file already exist there is no really need to download the file again. The url add is only a double check.
                 # So we will return true
                 return_val["status"] = True
                 return return_val
             if not url_is_in_db["url_exist"]:
                 logger.debug("File is already in DB (name match) but url is not the same. Add url to entry!")
+                
                 url_added = add_url_to_item_is_db(url_is_in_db["id"], url)
                 if not url_added:
                     logger.error("Error while adding url to file in DB!")
@@ -927,13 +959,15 @@ def download_file(url, path, metadata=None, ignore_existing_url=False):
             return_val["status"] = True
             return return_val
 
-    logging.info("File %s dont exist in DB", full_file_path)
+    
+    
+    logger.info("File %s dont exist in DB", full_file_path)
 
     logger.info("Downloading file from server")
 
 
     try:
-        ydl_opts = get_ydl_opts(path)
+        ydl_opts = get_ydl_opts(path, None, output_format)
 
         #Fetch metadata if not passed
         if metadata is None:
@@ -988,7 +1022,8 @@ def download_missing():
                                  "downloaded_content_count",
                                  "subscription_content_count",
                                  "subscription_has_new_data",
-                                 "current_subscription_data"], None, "ORDER BY scheme")
+                                 "current_subscription_data",
+                                 "output_format"], None, "ORDER BY scheme")
 
     if not subscriptions:
         logger.error("Error while fetching subscriptions!")
@@ -996,6 +1031,12 @@ def download_missing():
     failed_downloads = {}
     current_subscription = ""
     for subscription in subscriptions:
+        try:
+            output_filter = json.loads(subscription[7])
+        except json.JSONDecodeError:
+            output_filter = None
+            logger.error("Error while convertig output format attribute of subscription %s to json!", subscription[1])
+
         downloaded = 0
         #Create a new error array for the current subscription
         failed_downloads[subscription[1]] = []
@@ -1048,7 +1089,7 @@ def download_missing():
                 failed_downloads[subscription[1]].append(entry["title"])
                 continue
 
-            file_metadata = get_metadata(entry["url"], get_ydl_opts(expected_path))
+            file_metadata = get_metadata(entry["url"], get_ydl_opts(expected_path, format_filter=output_filter))
 
             if file_metadata is None:
                 logger.error("Error while fetching metadata! - Skip item %s", entry["title"])
@@ -1116,7 +1157,7 @@ def download_missing():
             if not download_file_now:
                 continue
 
-            file_downloaded = direct_download(entry["url"], subscription_path)
+            file_downloaded = direct_download(entry["url"], subscription_path, output_format=output_filter)
 
             if not file_downloaded:
                 #Append to the current subscription error log
@@ -1365,6 +1406,7 @@ def scheme_setup():
                         continue
                     table_exists = check_table_exist(scheme_data["db"]["table_name"])
 
+                    #If the table does not exist - create a new table inside the db
                     if not table_exists:
                         result = create_table(scheme_data["db"]["table_name"],
                                               scheme_data["db"]["columns"])
@@ -1378,14 +1420,31 @@ def scheme_setup():
                         #Line Break for Pylint #C0301
                         logger.info("""Table %s for scheme %s successfully created!""",
                                      scheme_data["db"]["table_name"], scheme)
-                        #If table is created check if there are any default values and add these
-                        if "rows" in scheme_data["db"]:
-                            logger.info("""Found default values for scheme %s -
-                                        Insert into table""",
-                                        scheme)
-                            for option in scheme_data["db"]["rows"]:
-                                #Iterate over all default options and insert them to the config
-                                #table
+                    else:
+                        #If the table already exist check if all columns are created (only adding)
+                        #Check if table is like the scheme (minimal requirements are columns inside the scheme file.)
+                        logger.debug("Check if table %s have all columns...", scheme_data["db"]["table_name"])
+                        all_columns_exist:bool = check_scheme_match(scheme_data["db"]["table_name"],
+                                              scheme_data["db"]["columns"])
+                        if not all_columns_exist:
+                            logger.error("Error while checking all tables if they have all columns needed! - Check log")
+                            error_occured = True
+                    
+                    #After all tables are created and have the most actual format (all columns)
+                    #Check if the tablee does have any rows that are created by default
+                    #If table is created check if there are any default values and add these
+                    if "rows" in scheme_data["db"] and "row_exist_value" in scheme_data["db"]:
+                        logger.info("""Found default values for scheme %s -
+                                    Insert into table""",
+                                    scheme)
+                        for option in scheme_data["db"]["rows"]:
+                            #Iterate over all default options and insert them to the config
+                            #table
+                            #Check if the value already exist
+                            print(option[scheme_data["db"]["row_exist_value"]])
+                            value_already_esist = fetch_value(scheme_data["db"]["table_name"], {scheme_data["db"]["row_exist_value"]: option[scheme_data["db"]["row_exist_value"]]}, [scheme_data["db"]["row_exist_value"]], True )
+
+                            if value_already_esist is None:
                                 row_inserted = insert_value(
                                     scheme_data["db"]["table_name"],
                                     option)
@@ -1393,9 +1452,9 @@ def scheme_setup():
                                     logger.error("Error while inserting row: %s!", option)
                                     continue
                                 logger.debug("Row inserted")
-                        else:
-                            logger.debug("There are no default rows in scheme %s", scheme)
-                            continue
+                    else:
+                        logger.debug("There are no default rows in scheme %s", scheme)
+                        continue
                 else:
                     logger.debug("Scheme %s does not need a table - SKIP", scheme)
                     continue
@@ -1863,6 +1922,117 @@ def validate(rehash=True):
             logger.error("Affected File: %s, Error: %s", error_files[index], error_message)
         return False
 
+
+################# File Format (output format) stuff
+
+def check_format_profile_exist(name: str):
+    """ This function checks if a profile exist with a specified name 
+
+        Return Val:
+            - Bool
+                -> True: Profile exists
+                -> False: Error or profile does not exist!
+    """
+    profiles = get_all_format_profiles()
+
+    #Check if we got any result at all...
+    if profiles is None:
+        logger.error("No profiles returned!")
+        return False
+    
+    if name in profiles:
+        return True
+    return False
+
+def enable_profile(name:str, disable_all_others:bool = False):
+    """ This function enabled a specified format profile"""
+    if check_format_profile_exist(name=name):
+        if disable_all_others:
+            all_disabled:bool = update_value("format_profiles", {"enabled": 0}, {"enabled": 1})
+            if not all_disabled:
+                logging.error("Error while disabling format profiles! - Abort enabling profile %s", name)
+                return False
+        
+        profile_enabled = update_value("format_profiles", {"enabled": 1}, {"profile_name": name})
+        if not profile_enabled:
+            logging.error("Error while enabling profile %s!", name)
+            return False
+        else:
+            return True
+    else:
+        logging.error("Specified profile %s cant be enabled. It does not exist!")
+        return False
+    
+def disable_profile(name:str):
+    """ This function disables a specified format profile"""
+    if check_format_profile_exist(name=name):
+        
+        profile_disabled = update_value("format_profiles", {"enabled": 0}, {"profile_name": name})
+        if not profile_disabled:
+            logging.error("Error while enabling profile %s!", name)
+            return False
+        else:
+            return True
+    else:
+        logging.error("Specified profile %s cant be disabled. It does not exist!")
+        return False
+
+def get_all_format_profiles(only_names = True) -> list|dict:
+    """ This function returns a list with all profiles currently defined """
+    if only_names:
+        profiles = fetch_value("format_profiles", None, ["profile_name"])
+
+        profile_list:list = []
+
+        if profiles is None:
+            return []
+        #load profiles into an json object
+        try:
+            for profile in profiles:
+                profile_list.append(profile[0])
+            return profile_list
+
+        except IndexError as e:
+            logger.error("Error while parsing profile formats! - Error: %s", e)
+            return []
+    else:
+        profiles = fetch_value("format_profiles", None, ["profile_name", "enabled", "comment", "use_raw", "format", "options", "raw"])
+
+        profile_list:json = {}
+
+        if profiles is None:
+            return []
+        #load profiles into an json object
+        try:
+            for profile in profiles:
+                profile_list[profile[0]] = {
+                    "profile_name": profile[0],
+                    "enabled": profile[1],
+                    "comment": profile[2],
+                    "use_raw": profile[3],
+                    "format": profile[4],
+                    "options": profile[5],
+                    "raw": profile[6]
+                }
+            return profile_list
+
+        except IndexError as e:
+            logger.error("Error while parsing profile formats! - Error: %s", e)
+            return []
+
+def show_profiles():
+    """ This function shows available profiles"""
+    profiles =  get_all_format_profiles(only_names=False)
+
+    profiles_table = PrettyTable(['Profile', 'enabled', 'description'])
+    profiles_table.align['Profile'] = "l"
+    profiles_table.align['enabled'] = "c"
+    profiles_table.align['description'] = "l"
+    for profile in profiles:
+        profiles_table.add_row([profiles[profile]["profile_name"], profiles[profile]["enabled"], profiles[profile]["comment"]])
+    print(profiles_table)
+    return True
+
 ################# Helper
 def fetch_path_data(path):
     '''
@@ -2235,7 +2405,7 @@ def get_metadata(url, ydl_opts):
         logger.error("Error while fetching metadata! - Type Error: %s", e)
         return None
 
-def get_ydl_opts(path, addons:json=None):
+def get_ydl_opts(path, addons:json=None, format_filter:list[str] = None):
     """
         #The standards options for yt dlp.
         These can be modified if the parameter addons is passed.
@@ -2247,8 +2417,193 @@ def get_ydl_opts(path, addons:json=None):
         Return Value: dict
         - Youtube DLP opts dict
     """
+    #This inline function is used to return the fileformat the user wants to have. 
+    #Optional: You can pass a filter with defined profile(names) to download titles with a specific format profile (list).
+    #If no filter is passed all enabled formats will be downloaded.
+    #If a filter is passed it is not important if the format is enabled or not. The filter overrules 
+    '''
+    def get_ytdlp_format(format_filter:list[str] = None):
+        
+        returned_format_list:list = []
+        returned_format:str = ""
+        #Just for logging...
+        returned_format_profiles:str = "" 
+
+        fallback_format = config.get("other", "fallback_format")
+
+        if fallback_format == "":
+            fallback_format = "best"
+
+        #If a filter is passed - just in case lower all profiles
+        if format_filter is not None:
+            format_filter = [filter_value.lower() for filter_value in format_filter]
+        
+            logger.debug("Format filter is passed. Try to use passed filters")
+        else:
+            logger.debug("No format Filter passed. Use all applicable formats")
+
+        try:
+            #Fetch format data from db. Normally a json array is returned (expected) -> e.g 
+            #[
+            #    {
+            #        "enabled": false, -> This format will not be used but the profile exists
+            #        "use_raw": false,
+            #        "format": "mp4",
+            #        "height": "1080",
+            #        "raw": ""
+            #    },
+            #    {
+            #        "enabled": true,
+            #        "format": "best"
+            #    }
+            #]
+            logger.debug("Fetch needed formats from config")
+            format_data = fetch_value("config", {"option_name": "format_profiles"}, ["option_value"], True)
+            #Check if a valid json array is returned
+            format_data = format_data[0]
+            #Convert readed string to valid json array
+            try:
+                format_data = json.loads(format_data)
+
+                if not isinstance(format_data, list) or len(format_data) == 0:
+                    logger.warning("No format is defined! - Default value (%s) will be returned!", fallback_format)
+                    returned_format = fallback_format
+                else:
+                    #Iterate over the list and fetch all needed formats
+                    logger.debug("Iterate over %i formats", len(format_data))
+                    for output_format in format_data:
+                        output_format_build_str:str = ""
+                        #Check if a filter is passed. If a filter is passed check if the current profile name is included. If not go to the next one...
+                        #Check if the profile is enabled and a profile_name is passed (normal way)
+                        if (("enabled" in output_format and output_format["enabled"] is True and "profile_name" in output_format and format_filter is None) or
+                            #check if the profilename exist and a format_filter is passed (it is not relevant if the profile is enabled) and check if the current profile is in the filter list
+                            ("profile_name" in output_format and format_filter is not None and isinstance(format_filter, list) and str(output_format["profile_name"]).lower() in format_filter)):
+
+                            logger.debug("Use format profile %s", output_format["profile_name"])
+                            #Only accept formats with "enabled" key and enabled = true (format is supposed to be used) and a profile name
+                            if "use_raw" in output_format and output_format["use_raw"] is True:
+                                if "raw" in output_format and len(output_format["raw"]) > 0:
+                                    #If "use_raw" is enabled all other options are menaingless. Just paste the raw data to the format string
+                                    output_format_build_str = output_format["raw"]
+                                else:
+                                    logger.warning("RAW format is skipped! - Not a valid format entry!")
+                            else:
+                                #If not use_raw inside the object -> Paste data... - Check if all needed keys are existing
+                                if "format" in output_format and isinstance(output_format["format"], str) and len(output_format["format"]) > 0:
+                                    output_format_build_str:str = output_format["format"]
+                                if "options" in output_format and isinstance(output_format["options"], list) and len(output_format["options"]) > 0:
+                                    format_options:str = "["
+                                    for format_option in output_format["options"]:
+                                        format_options += format_option
+                                        format_options += ","
+                                    format_options = format_options[:-1]
+                                    format_options += "]"
+                                    output_format_build_str += format_options                           
+                            #Append the current format (string) to the output format list
+                            returned_format_list.append(output_format_build_str)
+                            #Append profile name for logging
+                            returned_format_profiles += "'" + output_format["profile_name"] + "' "
+                        else:
+                            logger.debug("Skipped format")
+                            
+                    #Convert the list to a string
+                    returned_format = ",".join(returned_format_list[::-1])
+
+            except json.JSONDecodeError as e:
+                logger.error("Error while converting readed format data to json array! - Return default value - Error: %s", e)
+                returned_format = fallback_format
+        except (ValueError, TypeError) as e:
+            logger.error("Error while fetching valid information format information from db! - Return default format (%s). - Error: %s", fallback_format, e)
+            returned_format = fallback_format
+        
+        if returned_format != "":
+            logger.info("Used formats: %s", returned_format_profiles)
+            return returned_format
+        else:
+            logger.warning("Leak! -> returned format does not have a valid format!")
+            return fallback_format
+    '''
+
+    #New Version using DB
+    def get_ytdlp_format(format_filter:list[str] = None):
+        """ This function is used to return all needed formats for the current operation"""
+
+        #This is the fallback format in case we dont find any profiles
+        fallback_format = config.get("other", "fallback_format")
+
+        if fallback_format == "":
+            fallback_format = "best"
+
+        final_list:list = []
+
+        if format_filter is not None:
+            #Only check if all values inside the list (format_filter) are real profiles. All real values are directly passed with the corresponding options
+            for desired_format in format_filter:
+                if check_format_profile_exist(desired_format):
+                    final_list.append(desired_format)
+        else:
+            enabled_profiles = fetch_value("format_profiles", {"enabled": "1"}, ["profile_name"])
+            
+            if enabled_profiles is None:
+                logging.warning("No format profile is enabled! - Use fallback 'best'!")
+                return fallback_format
+            
+            for enabled_profile in enabled_profiles:
+                final_list.append(enabled_profile[0])
+        
+        #Now we have all formats we want for our file... No matter if we use only enabled or a predefined set!
+
+        if len(final_list) == 0:
+            #If we dont have any profiles now - return fallback
+            return fallback_format
+
+        returned_format_list:list = []
+        
+        profiles = get_all_format_profiles(only_names=False)
+
+        for final_format in final_list:
+            #The cache string for our current format
+            output_format_build_str:str = ""
+            #We need to iterate over the list of formats used for our file and then create the string based on the options
+            #Fetch the current profile
+            try:
+                current_profile = profiles[final_format]
+                
+                if "use_raw" in current_profile and current_profile["use_raw"] == 1:
+                    #If the current profile uses RAW input - we only need to append the raw field to the return str
+                    if "raw" in current_profile and current_profile["raw"] is not None and len(current_profile["raw"]) > 0:
+                        output_format_build_str = current_profile["raw"]
+                    else:
+                        logger.warning("RAW format is skipped! - Not a valid format entry!")
+                        continue
+                else:
+                    #We dont use raw... we need to build it manually
+                    if "format" in current_profile and current_profile["format"] is not None and len(current_profile["format"]) > 0:
+                        output_format_build_str:str = current_profile["format"]
+                    if "options" in current_profile and current_profile["options"] is not None and len(current_profile["options"]) > 0:
+                        output_format_build_str += current_profile["options"]
+                #Append the current format (string) to the output format list
+                returned_format_list.append(output_format_build_str)
+            except KeyError as e:
+                logging.error("Error while fetching profile for %s. Skip format! - Error: %s", final_format, e)
+                continue
+            
+            
+            if len(returned_format_list) == 0:
+                #If we don't have any formats in this list, something went wrong... Use fallback
+                return fallback_format
+            #Convert the list to a string
+            returned_format = ",".join(returned_format_list[::-1])
+
+            if returned_format != "":
+                logger.info("Used formats: %s", final_list)
+                return returned_format
+            else:
+                logger.warning("Leak! -> returned format does not have a valid format!")
+                return fallback_format
+
     opts = {
-                'format': 'best',
+                'format': get_ytdlp_format(format_filter),
                 'outtmpl': path + '/%(title)s.%(ext)s',
                 'nooverwrites': True,
                 'no_warnings': True,
@@ -2256,13 +2611,12 @@ def get_ydl_opts(path, addons:json=None):
                 'replace-in-metadata': True,
                 'restrict-filenames': True
             }
-    if addons is None:
-        #Return default set
-        return opts
-    for key in addons:
-        if key == "outtmpl":
-            continue
-        opts[key] = addons[key]
+    if addons is not None:
+        for key in addons:
+            if key == "outtmpl":
+                continue
+            opts[key] = addons[key]
+    
     return opts
 
 def create_hash_from_file(file):
@@ -2513,7 +2867,7 @@ def add_duplicate_file(hash_value, c_filename, c_filepath= None, db_id=None, db_
             content = file.read()
 
     duplicates_json = {}
-    if content is not None and content is not "":
+    if content is not None and content != "":
         try:
             duplicates_json = json.loads(content)
         except json.JSONDecodeError:
@@ -2594,7 +2948,7 @@ def show_duplicate_files():
     if content is None or len(content) < 2:
         logging.info("No duplicates found!")
         return None
-    if content is not None and content is not "":
+    if content is not None and content != "":
         try:
             duplicates_json = json.loads(content)
         except json.JSONDecodeError:
