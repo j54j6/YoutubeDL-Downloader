@@ -10,6 +10,7 @@
             "option_value": {"type": "text", "not_null": true},
             "datecreated": {"type": "DATETIME", "default": "CURRENT_TIMESTAMP"}
         },
+        "row_exist_value": "option_name",
         "rows": [
             {"option_name": "base_location", "option_value": "./ytdownloader"},
             {"option_name": "use_tags_from_ydl", "option_value": "false"},

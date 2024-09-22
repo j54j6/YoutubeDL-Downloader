@@ -216,6 +216,41 @@ def prepare_sql_create_statement(name, scheme):
     query +=");"
     return query
 
+def prepare_sql_add_column_statement(table_name, column_name, options):
+    """ This function is used to add columns to an existing table based on a defined json scheme.
+        Check documentation for help
+
+        Return Values:
+            - None -> Error
+            - SQL Statement
+    """
+    query:str = f"ALTER TABLE {table_name} ADD COLUMN {column_name}"
+
+    #Iterate over all defined columns. Check for different optionas and add them to the query.
+
+    #For each column create a cache query based on SQL -> <<Name>> <<type>> <<options>>
+    if not "type" in options:
+        #PyLint C0301
+        logger.error("""Error while creating table! -
+                     Column %s does not include a valid \"type\" field!""", column_name)
+        return None
+    c_query:str = ""
+    c_query += " " + options["type"]
+    if "not_null" in options and options["not_null"] is True and "default" in options and options["default"] != "":
+        c_query += " NOT NULL"
+    if "primary_key" in options and options["primary_key"] is True:
+        logger.warning("Altering a table and changing the primary key is NOT supported!")
+    if "auto_increment" in options and options["auto_increment"] is True:
+        logger.warning("Altering a table and changing the primary key is NOT supported! -> Auto increment is also disabled...")
+    if "unique" in options and options["unique"] is True:
+        c_query += " UNIQUE"
+    if "default" in options:
+        c_query += " DEFAULT " + options["default"]
+    query += c_query + ", "
+    query = query[:-2]
+    query +=";"
+    return query
+
 def create_table(name:str, scheme:json):
     """This function can create a table bases on a defined JSON scheme
 
@@ -273,6 +308,52 @@ def create_table(name:str, scheme:json):
     except sqlite3.Error as e:
         logger.error("Error while creating table %s Error: %s", name, e)
         return False
+
+def check_scheme_match(table_name: str, scheme:json):
+    """ 
+    This function is used to check if a given (existing) table is matching a given scheme (it checks if all columns of the scheme actually existing inside the db table)
+    If there are missing columns they will be added (but nothing removed!)
+    """
+    if not db_init:
+        init = check_db()
+        if not init:
+            logger.error("Error while initializing DB")
+            return False
+    #Check if the table already exist. If so - SKIP
+    if not check_table_exist(table_name):
+        logger.warning("Table %s does not exist! - Can't check if the table matches a scheme...", table_name)
+        return False
+    
+    #Fetch all rows of the table
+    cursor = cursor = ENGINE.cursor()
+    cursor.execute("SELECT * from " + table_name)
+    ENGINE.commit()
+
+    names = list(map(lambda x: x[0], cursor.description))
+
+    missing_columns:list = []
+    
+    for needed_column in scheme:
+        if not needed_column in names:
+            print(needed_column)
+            print("Is missing")
+            missing_columns.append(needed_column)
+    
+    if len(missing_columns) > 0:
+        logger.info("Table %s misses %i columns. Add missing columns...", table_name, len(missing_columns))
+        for missing_column in missing_columns:
+            try:
+                sql_statement = prepare_sql_add_column_statement(table_name, missing_column, scheme[missing_column])
+                cursor = cursor = ENGINE.cursor()
+                cursor.execute(sql_statement)
+                ENGINE.commit()
+                return True
+            except sqlite3.Error as e:
+                logger.error("Error while adding column %s to table %s Error: %s", missing_column, table_name, e)
+                return False
+    else:
+        logger.info("Table %s is up to date...", table_name)
+        return True
 
 def fetch_value(table:str, conditions:dict|list=None, data_filter:dict|list = None,
                 is_unique=False, extra_sql=None):
