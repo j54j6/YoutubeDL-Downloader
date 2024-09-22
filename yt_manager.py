@@ -209,15 +209,11 @@ def main():
     # Execute the command
     command_func = commands.get(args.command)
     if command_func:
-        try:
-            NO_ERROR = command_func()
-            if NO_ERROR:
-                sys.exit(0)
-            else:
-                logging.error("Command execution failed.")
-                sys.exit(1)
-        except Exception as e:
-            logging.error(f"An error occurred: {str(e)}")
+        NO_ERROR = command_func()
+        if NO_ERROR:
+            sys.exit(0)
+        else:
+            logging.error("Command execution failed.")
             sys.exit(1)
     else:
         logging.error("Invalid command. Showing help.")

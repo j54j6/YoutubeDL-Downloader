@@ -506,11 +506,12 @@ def import_subscriptions(path="./", delelte_current_subscriptions=False):
         error_raised = False
         failed_imports = []
         for subscription in subscriptions:
+            format_list = json.loads(subscription["output_format"])
             success = add_subscription(subscription["subscription_path"],
                                        subscription["downloaded_content_count"],
                                        subscription["subscription_last_checked"],
                                        subscription["last_subscription_data"],
-                                       subscription["output_format"])
+                                       format_list)
             if not success:
                 error_raised = True
                 failed_imports.append(subscription["subscription_name"])
