@@ -17,54 +17,7 @@
             {"option_name": "remove_file_on_post_process_error", "option_value": "false"},
             {"option_name": "last_full_check", "option_value": "NONE"},
             {"option_name": "subscription_check_delay", "option_value": "24"},
-            {"option_name": "automatically_redownload_missing_files", "option_value": "true"},
-            {"option_name": "format_profiles", "option_value": [
-                {
-                    "enabled": false,
-                    "profile_name": "mp4_1080p",
-                    "comment": "This profile downloads a mp4 with a pixel height of 1080",
-                    "use_raw": false,
-                    "format": "mp4",
-                    "options": [
-                        "height=1080"
-                    ],
-                    "raw": ""
-                },
-                {
-                    "enabled": false,
-                    "profile_name": "mp4_360",
-                    "comment": "This profile downloads a mp4 with a pixel height of 360",
-                    "use_raw": false,
-                    "format": "mp4",
-                    "options": [
-                        "height=360"
-                    ],
-                    "raw": ""
-                },
-                {
-                    "enabled": false,
-                    "profile_name": "mp4_240",
-                    "comment": "This profile downloads a mp4 with a pixel height of 240",
-                    "use_raw": false,
-                    "format": "mp4",
-                    "options": [
-                        "height=240"
-                    ],
-                    "raw": ""
-                },
-                {
-                    "enabled": false,
-                    "profile_name": "mp3",
-                    "comment": "This profile will download only mp3",
-                    "format": "mp3"
-                },
-                {
-                    "enabled": true,
-                    "profile_name": "best_format",
-                    "comment": "This profile downloads always the best possible format (Default)",
-                    "format": "best"
-                }
-            ]}
+            {"option_name": "automatically_redownload_missing_files", "option_value": "true"}
         ]
     }
 }
